@@ -20,7 +20,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'username', 'name', 'phone', 'gender', 'division', 'photo', 'password'
+        'username', 'name', 'phone', 'gender', 'division', 'photo', 'password','email'
     ];
 
     /**
@@ -44,5 +44,26 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+     public function division()
+    {
+        return $this->belongsTo(Division::class, 'id_division', 'id_division');
+    }
+
+    /**
+     * Mendefinisikan relasi "belongsTo" ke model Role.
+     */
+    public function role()
+    {
+        return $this->belongsTo(Role::class, 'id_role', 'id_role');
+    }
+
+    /**
+     * Mendefinisikan relasi "hasMany" ke model Rapat (sebagai pengaju).
+     */
+    public function rapatDiajukan()
+    {
+        return $this->hasMany(Rapat::class, 'id_user_pengaju', 'id');
     }
 }

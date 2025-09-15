@@ -19,7 +19,7 @@ class AuthController extends Controller
             'name'     => 'required|string',
             'phone'    => 'nullable|string',
             'gender'   => 'nullable|in:male,female,other',
-            'division' => 'nullable|string',
+            'division_id' => 'nullable|integer|exists:divisions,id',
             'photo'    => 'nullable|image|max:2048',
         ]);
 
