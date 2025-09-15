@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../models/meeting.dart';
+import 'package:absen_app/Models/models/meeting.dart';
 import 'scan_qr.dart';
 
 class UserMeetingDetail extends StatefulWidget {

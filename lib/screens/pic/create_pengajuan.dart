@@ -1,24 +1,30 @@
 import 'package:absen_app/Models/models/meeting.dart';
+import 'package:absen_app/Models/models/meeting_request.dart';
 import 'package:absen_app/Models/services/meeting_repo.dart' show MeetingRepo;
+import 'package:absen_app/Models/services/meeting_request_repo.dart';
 import 'package:flutter/material.dart';
-import 'meeting_qr.dart';
+import 'package:absen_app/screens/pic/pic_dashboard.dart' show PICDashboard;
+import 'package:flutter/scheduler.dart';
+import 'package:intl/intl.dart';
 
-class CreateMeeting extends StatefulWidget {
-  const CreateMeeting({super.key});
+class CreatePengajuan extends StatefulWidget {
+  const CreatePengajuan({super.key});
 
   @override
-  State<CreateMeeting> createState() => _CreateMeetingState();
+  State<CreatePengajuan> createState() => _CreatePengajuanState();
 }
 
-class _CreateMeetingState extends State<CreateMeeting> {
+class _CreatePengajuanState extends State<CreatePengajuan> {
   final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
+  final _descriptionCtrl = TextEditingController(); // Tambahan field deskripsi
   DateTime? _selectedDate;
   TimeOfDay? _selectedStartTime;
   TimeOfDay? _selectedEndTime;
   String? _selectedRoom;
   String? _selectedResponsible;
-  bool _isIndefinite = false; // Checkbox untuk rapat tidak menentu
+  bool _isIndefinite = false;
+  bool _isPending = true; // Status pengajuan (pending/approved)
 
   // List ruangan yang tersedia
   final List<String> _availableRooms = [
@@ -49,6 +55,7 @@ class _CreateMeetingState extends State<CreateMeeting> {
   @override
   void dispose() {
     _titleCtrl.dispose();
+    _descriptionCtrl.dispose();
     super.dispose();
   }
 
@@ -56,17 +63,17 @@ class _CreateMeetingState extends State<CreateMeeting> {
     final now = DateTime.now();
     final date = await showDatePicker(
       context: context,
-      firstDate: now.subtract(const Duration(days: 365)),
-      lastDate: now.add(const Duration(days: 365 * 2)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
       initialDate: now,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF1565C0),
+              primary: Color(0xFF4CAF50), // Hijau untuk PIC
               onPrimary: Colors.white,
               surface: Colors.white,
-              onSurface: Color(0xFF1565C0),
+              onSurface: Color(0xFF4CAF50),
             ),
           ),
           child: child!,
@@ -88,10 +95,10 @@ class _CreateMeetingState extends State<CreateMeeting> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF1565C0),
+              primary: Color(0xFF4CAF50),
               onPrimary: Colors.white,
               surface: Colors.white,
-              onSurface: Color(0xFF1565C0),
+              onSurface: Color(0xFF4CAF50),
             ),
           ),
           child: child!,
@@ -102,7 +109,6 @@ class _CreateMeetingState extends State<CreateMeeting> {
 
     setState(() {
       _selectedStartTime = time;
-      // Jika end time belum dipilih atau start time lebih besar dari end time, reset end time
       if (_selectedEndTime == null || _isTimeAfter(time, _selectedEndTime!)) {
         _selectedEndTime = null;
       }
@@ -129,10 +135,10 @@ class _CreateMeetingState extends State<CreateMeeting> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF1565C0),
+              primary: Color(0xFF4CAF50),
               onPrimary: Colors.white,
               surface: Colors.white,
-              onSurface: Color(0xFF1565C0),
+              onSurface: Color(0xFF4CAF50),
             ),
           ),
           child: child!,
@@ -141,7 +147,6 @@ class _CreateMeetingState extends State<CreateMeeting> {
     );
     if (time == null) return;
 
-    // Validasi: end time harus setelah start time
     if (!_isTimeAfter(time, _selectedStartTime!)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -157,7 +162,6 @@ class _CreateMeetingState extends State<CreateMeeting> {
     });
   }
 
-  // Helper function untuk membandingkan waktu
   bool _isTimeAfter(TimeOfDay time1, TimeOfDay time2) {
     final now = DateTime.now();
     final datetime1 = DateTime(now.year, now.month, now.day, time1.hour, time1.minute);
@@ -165,7 +169,7 @@ class _CreateMeetingState extends State<CreateMeeting> {
     return datetime1.isAfter(datetime2);
   }
 
-  void _save() {
+  void _ajukan() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_selectedDate == null) {
       _showErrorSnackbar('Pilih tanggal rapat');
@@ -209,17 +213,42 @@ class _CreateMeetingState extends State<CreateMeeting> {
       );
     }
 
-    final meeting = MeetingRepo.add(
-      title: _titleCtrl.text.trim(),
-      startTime: startDateTime,
-      endTime: endDateTime, // Bisa null jika indefinite
-      room: _selectedRoom!,
-      responsible: _selectedResponsible!,
-      pic: 'default_pic.jpg',
+    // Untuk PIC, buat meeting dengan status pending
+    // Di kode PIC ketika mengajukan rapat
+MeetingRequestRepo.add(MeetingRequest(
+  id: 'unique_id_${DateTime.now().millisecondsSinceEpoch}',
+  title: _titleCtrl.text.trim(),
+  description: _descriptionCtrl.text.trim(),
+  room: _selectedRoom!,
+  proposedTime: DateTime.now().add(const Duration(days: 2)),
+  requester: _selectedResponsible!,
+  requesterId: 'user_id_pic',
+  requestTime: DateTime.now(),
+  status: 'pending',
+));
+
+    // Tampilkan konfirmasi pengajuan berhasil
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 20),
+            SizedBox(width: 8),
+            Text('Pengajuan rapat berhasil dikirim ke Admin'),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
     );
 
+    // Kembali ke PIC Dashboard setelah pengajuan
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => MeetingQR(meeting: meeting)),
+      MaterialPageRoute(builder: (_) => const PICDashboard()),
     );
   }
 
@@ -253,7 +282,7 @@ class _CreateMeetingState extends State<CreateMeeting> {
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text(
-          'Buat Rapat',
+          'Ajukan Rapat',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -264,8 +293,8 @@ class _CreateMeetingState extends State<CreateMeeting> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFF1565C0),
-                Color(0xFF42A5F5),
+                Color(0xFF4CAF50), // Hijau untuk PIC
+                Color(0xFF66BB6A),
               ],
             ),
           ),
@@ -283,12 +312,12 @@ class _CreateMeetingState extends State<CreateMeeting> {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFFFC107), Color(0xFFFFB300)],
+                    colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFFC107).withOpacity(0.3),
+                      color: const Color(0xFF4CAF50).withOpacity(0.3),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -299,7 +328,7 @@ class _CreateMeetingState extends State<CreateMeeting> {
                     Icon(Icons.event_note, size: 48, color: Colors.white),
                     SizedBox(height: 12),
                     Text(
-                      'Buat Rapat Baru',
+                      'Ajukan Rapat Baru',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -308,7 +337,7 @@ class _CreateMeetingState extends State<CreateMeeting> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Lengkapi informasi rapat di bawah ini',
+                      'Ajukan rapat untuk disetujui Admin',
                       style: TextStyle(color: Colors.white, fontSize: 14),
                     ),
                   ],
@@ -331,11 +360,11 @@ class _CreateMeetingState extends State<CreateMeeting> {
                       children: [
                         // Judul Rapat
                         const Text(
-                          'Informasi Rapat',
+                          'Informasi Pengajuan',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF1565C0),
+                            color: Color(0xFF4CAF50),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -346,7 +375,7 @@ class _CreateMeetingState extends State<CreateMeeting> {
                             labelText: 'Judul Rapat',
                             prefixIcon: const Icon(
                               Icons.title,
-                              color: Color(0xFF1565C0),
+                              color: Color(0xFF4CAF50),
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -358,12 +387,12 @@ class _CreateMeetingState extends State<CreateMeeting> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(
-                                color: Color(0xFF1565C0),
+                                color: Color(0xFF4CAF50),
                                 width: 2,
                               ),
                             ),
                             labelStyle: const TextStyle(
-                              color: Color(0xFF1565C0),
+                              color: Color(0xFF4CAF50),
                             ),
                             filled: true,
                             fillColor: Colors.grey[50],
@@ -374,14 +403,16 @@ class _CreateMeetingState extends State<CreateMeeting> {
                         ),
                         const SizedBox(height: 20),
 
-                        // Dropdown Ruangan
-                        DropdownButtonFormField<String>(
-                          value: _selectedRoom,
+                        // Deskripsi Rapat
+                        TextFormField(
+                          controller: _descriptionCtrl,
+                          maxLines: 3,
                           decoration: InputDecoration(
-                            labelText: 'Ruangan Rapat',
+                            labelText: 'Deskripsi Rapat (Opsional)',
+                            alignLabelWithHint: true,
                             prefixIcon: const Icon(
-                              Icons.meeting_room,
-                              color: Color(0xFF1565C0),
+                              Icons.description,
+                              color: Color(0xFF4CAF50),
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -393,12 +424,44 @@ class _CreateMeetingState extends State<CreateMeeting> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(
-                                color: Color(0xFF1565C0),
+                                color: Color(0xFF4CAF50),
                                 width: 2,
                               ),
                             ),
                             labelStyle: const TextStyle(
-                              color: Color(0xFF1565C0),
+                              color: Color(0xFF4CAF50),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Dropdown Ruangan
+                        DropdownButtonFormField<String>(
+                          value: _selectedRoom,
+                          decoration: InputDecoration(
+                            labelText: 'Ruangan Rapat',
+                            prefixIcon: const Icon(
+                              Icons.meeting_room,
+                              color: Color(0xFF4CAF50),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF4CAF50),
+                                width: 2,
+                              ),
+                            ),
+                            labelStyle: const TextStyle(
+                              color: Color(0xFF4CAF50),
                             ),
                             filled: true,
                             fillColor: Colors.grey[50],
@@ -425,7 +488,7 @@ class _CreateMeetingState extends State<CreateMeeting> {
                             labelText: 'Penanggung Jawab',
                             prefixIcon: const Icon(
                               Icons.person,
-                              color: Color(0xFF1565C0),
+                              color: Color(0xFF4CAF50),
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -437,12 +500,12 @@ class _CreateMeetingState extends State<CreateMeeting> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(
-                                color: Color(0xFF1565C0),
+                                color: Color(0xFF4CAF50),
                                 width: 2,
                               ),
                             ),
                             labelStyle: const TextStyle(
-                              color: Color(0xFF1565C0),
+                              color: Color(0xFF4CAF50),
                             ),
                             filled: true,
                             fillColor: Colors.grey[50],
@@ -467,10 +530,10 @@ class _CreateMeetingState extends State<CreateMeeting> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF3F8FF),
+                            color: const Color(0xFFE8F5E9),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: const Color(0xFF1565C0).withOpacity(0.3),
+                              color: const Color(0xFF4CAF50).withOpacity(0.3),
                             ),
                           ),
                           child: Column(
@@ -480,15 +543,15 @@ class _CreateMeetingState extends State<CreateMeeting> {
                                 children: [
                                   Icon(
                                     Icons.schedule,
-                                    color: Color(0xFF1565C0),
+                                    color: Color(0xFF4CAF50),
                                     size: 20,
                                   ),
                                   SizedBox(width: 8),
                                   Text(
-                                    'Jadwal Rapat',
+                                    'Jadwal Rapat yang Diajukan',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF1565C0),
+                                      color: Color(0xFF4CAF50),
                                     ),
                                   ),
                                 ],
@@ -506,13 +569,13 @@ class _CreateMeetingState extends State<CreateMeeting> {
                                       ? 'Belum dipilih' 
                                       : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
                                     style: TextStyle(
-                                      color: _selectedDate == null ? Colors.grey[600] : const Color(0xFF1565C0),
+                                      color: _selectedDate == null ? Colors.grey[600] : const Color(0xFF4CAF50),
                                     ),
                                   ),
                                   const Spacer(),
                                   Container(
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFFFC107),
+                                      color: const Color(0xFF4CAF50),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: IconButton(
@@ -535,7 +598,7 @@ class _CreateMeetingState extends State<CreateMeeting> {
                                   Text(
                                     _formatTime(_selectedStartTime),
                                     style: TextStyle(
-                                      color: _selectedStartTime == null ? Colors.grey[600] : const Color(0xFF1565C0),
+                                      color: _selectedStartTime == null ? Colors.grey[600] : const Color(0xFF4CAF50),
                                     ),
                                   ),
                                   const Spacer(),
@@ -565,13 +628,13 @@ class _CreateMeetingState extends State<CreateMeeting> {
                                     Text(
                                       _formatTime(_selectedEndTime),
                                       style: TextStyle(
-                                        color: _selectedEndTime == null ? Colors.grey[600] : const Color(0xFF1565C0),
+                                        color: _selectedEndTime == null ? Colors.grey[600] : const Color(0xFF4CAF50),
                                       ),
                                     ),
                                     const Spacer(),
                                     Container(
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFF44336),
+                                        color: const Color(0xFF4CAF50),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: IconButton(
@@ -599,7 +662,7 @@ class _CreateMeetingState extends State<CreateMeeting> {
                                         }
                                       });
                                     },
-                                    activeColor: const Color(0xFF1565C0),
+                                    activeColor: const Color(0xFF4CAF50),
                                   ),
                                   const Text('Selesai tidak menentu'),
                                   const SizedBox(width: 4),
@@ -616,25 +679,25 @@ class _CreateMeetingState extends State<CreateMeeting> {
               ),
               const SizedBox(height: 24),
 
-              // Tombol Simpan
+              // Tombol Ajukan
               Container(
                 width: double.infinity,
                 height: 55,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+                    colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF1565C0).withOpacity(0.4),
+                      color: const Color(0xFF4CAF50).withOpacity(0.4),
                       blurRadius: 12,
                       offset: const Offset(0, 6),
                     ),
                   ],
                 ),
                 child: ElevatedButton.icon(
-                  onPressed: _save,
+                  onPressed: _ajukan,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
@@ -642,9 +705,9 @@ class _CreateMeetingState extends State<CreateMeeting> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  icon: const Icon(Icons.save, color: Colors.white),
+                  icon: const Icon(Icons.send, color: Colors.white),
                   label: const Text(
-                    'Simpan & Tampilkan QR',
+                    'Ajukan ke Admin',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,

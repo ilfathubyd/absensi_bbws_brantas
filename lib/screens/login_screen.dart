@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:absen_app/screens/admin/admin_dashboard.dart'
-    show AdminDashboard;
+import 'package:absen_app/screens/admin/admin_dashboard.dart'show AdminDashboard;
 import 'package:absen_app/screens/user/user_dashboard.dart' show UserDashboard;
+import 'package:absen_app/screens/pic/pic_dashboard.dart' show PICDashboard; // Import PIC Dashboard
 import 'package:absen_app/Models/models/user.dart';
 
 late AppUser currentUser; // global user login
@@ -16,7 +16,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _usernameCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
-  bool _isAdmin = false;
+  String _selectedRole = 'user'; // 'user', 'pic', 'admin'
 
   @override
   void dispose() {
@@ -30,26 +30,100 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passCtrl.text.trim();
 
     // TODO: Validasi ke backend sesuai role
-    if (_isAdmin) {
-      print("Login Admin: $username");
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AdminDashboard()),
-      );
-    } else {
-      // login user
-      currentUser = AppUser(
-        id: "u123",
-        name: username,
-        email: "$username@example.com", // dummy email
-        photoUrl: "https://i.pravatar.cc/150?u=$username",
-      );
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const UserDashboard()),
-      );
+    switch (_selectedRole) {
+      case 'admin':
+        print("Login Admin: $username");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminDashboard()),
+        );
+        break;
+      
+      case 'pic':
+        print("Login PIC: $username");
+        currentUser = AppUser(
+          id: "pic123",
+          name: username,
+          email: "$username@example.com",
+          photoUrl: "https://i.pravatar.cc/150?u=$username",
+          role: 'pic', // Tambahkan role PIC
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const PICDashboard()),
+        );
+        break;
+      
+      case 'user':
+      default:
+        // login user
+        currentUser = AppUser(
+          id: "u123",
+          name: username,
+          email: "$username@example.com",
+          photoUrl: "https://i.pravatar.cc/150?u=$username",
+          role: 'user',
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const UserDashboard()),
+        );
     }
+  }
+
+  // Widget untuk radio button role
+  Widget _buildRoleRadio(String value, String title, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: _selectedRole == value 
+            ? const Color(0xFFE3F2FD) 
+            : Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: _selectedRole == value 
+              ? const Color(0xFF1565C0) 
+              : Colors.grey[300]!,
+          width: _selectedRole == value ? 2 : 1,
+        ),
+      ),
+      child: ListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        leading: Icon(
+          icon,
+          color: _selectedRole == value 
+              ? const Color(0xFF1565C0) 
+              : Colors.grey[600],
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: _selectedRole == value 
+                ? FontWeight.bold 
+                : FontWeight.normal,
+            color: _selectedRole == value 
+                ? const Color(0xFF1565C0) 
+                : Colors.grey[700],
+          ),
+        ),
+        trailing: Radio<String>(
+          value: value,
+          groupValue: _selectedRole,
+          onChanged: (value) {
+            setState(() {
+              _selectedRole = value!;
+            });
+          },
+          activeColor: const Color(0xFF1565C0),
+        ),
+        onTap: () {
+          setState(() {
+            _selectedRole = value;
+          });
+        },
+      ),
+    );
   }
 
   @override
@@ -99,12 +173,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: ClipOval(
                         child: Padding(
-                          padding: const EdgeInsets.all(
-                            8.0,
-                          ), // Beri jarak dari tepi
+                          padding: const EdgeInsets.all(8.0),
                           child: Image.asset(
                             'assets/images/logo1.png',
-                            fit: BoxFit.contain, // Atau BoxFit.cover
+                            fit: BoxFit.contain,
                           ),
                         ),
                       ),
@@ -198,36 +270,34 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Checkbox admin dengan container
+                    // Pilihan Role (User, PIC, Admin)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
-                        vertical: 8,
+                        vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF8E1), // Kuning muda
-                        borderRadius: BorderRadius.circular(8),
+                        color: const Color(0xFFF5F7FA),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: const Color(0xFFFFC107).withOpacity(0.3),
+                          color: const Color(0xFF1565C0).withOpacity(0.2),
                         ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Checkbox(
-                            value: _isAdmin,
-                            onChanged:
-                                (v) => setState(() => _isAdmin = v ?? false),
-                            activeColor: const Color(0xFFFFC107),
-                            checkColor: Colors.white,
-                          ),
                           const Text(
-                            'Login sebagai Admin',
+                            'Login Sebagai:',
                             style: TextStyle(
+                              fontWeight: FontWeight.bold,
                               color: Color(0xFF1565C0),
-                              fontWeight: FontWeight.w500,
+                              fontSize: 16,
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          _buildRoleRadio('user', 'User', Icons.person),
+                          _buildRoleRadio('pic', 'PIC', Icons.supervisor_account),
+                          _buildRoleRadio('admin', 'Admin', Icons.admin_panel_settings),
                         ],
                       ),
                     ),

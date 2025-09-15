@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:absen_app/screens/login_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -29,8 +30,8 @@ class UserDashboard extends StatefulWidget {
 }
 
 class _UserDashboardState extends State<UserDashboard> {
-  final String userName = "Ahmad Rizki";
-  final String userEmail = "ahmad.rizki@example.com";
+  final String userName = "Null";
+  final String userEmail = "null@example.com";
   final List<Map<String, dynamic>> meetings = [
     {
       'title': 'Rapat Tim Produk',
@@ -64,7 +65,7 @@ class _UserDashboardState extends State<UserDashboard> {
     // Logika logout di sini
     print("User logged out");
     
-    // Navigasi ke halaman login
+    // Navigasi ke halaman login yang sudah dibuat di script kedua
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -163,9 +164,9 @@ class _UserDashboardState extends State<UserDashboard> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildStatCard('Rapat Hari Ini', '2', Icons.calendar_today),
-                    _buildStatCard('Hadir', '12', Icons.check_circle),
-                    _buildStatCard('Izin', '1', Icons.pending_actions),
+                    _buildStatCard('Rapat Hari Ini', '0', Icons.calendar_today),
+                    _buildStatCard('Hadir', '0', Icons.check_circle),
+                    _buildStatCard('Izin', '0', Icons.pending_actions),
                   ],
                 ),
               ),
@@ -445,124 +446,6 @@ class _UserDashboardState extends State<UserDashboard> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// Halaman Login Screen
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF0F6FF),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Logo atau Gambar
-              Container(
-                width: 150,
-                height: 150,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E3A8A),
-                  borderRadius: BorderRadius.circular(75),
-                ),
-                child: const Icon(
-                  Icons.person,
-                  color: Color(0xFFFFD700),
-                  size: 70,
-                ),
-              ),
-              const SizedBox(height: 30),
-              
-              // Judul
-              const Text(
-                'Selamat Datang Kembali',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E3A8A),
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Silakan masuk ke akun Anda',
-                style: TextStyle(
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 30),
-              
-              // Form Login
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.blue.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email, color: Color(0xFF1E3A8A)),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    TextFormField(
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: Icon(Icons.lock, color: Color(0xFF1E3A8A)),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // Logika login di sini
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (context) => const UserDashboard()),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1E3A8A),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text(
-                          'Masuk',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

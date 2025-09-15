@@ -8,6 +8,6 @@ class AppUser {
     required this.id,
     required this.name,
     required this.email,
-    required this.photoUrl,
+    required this.photoUrl, required String role,
   });
 }

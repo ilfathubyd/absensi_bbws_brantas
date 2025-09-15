@@ -1,7 +1,8 @@
 import 'dart:async';
+import 'package:absen_app/screens/admin/admin_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../../models/meeting.dart';
+import 'package:absen_app/Models/models/meeting.dart';
 
 class MeetingQR extends StatefulWidget {
   final Meeting meeting;
@@ -35,6 +36,19 @@ class _MeetingQRState extends State<MeetingQR> {
     });
   }
 
+  // Fungsi untuk kembali dengan aman
+  void _kembali() {
+    // Cek apakah bisa pop
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      // Jika tidak bisa pop, navigasi ke dashboard
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => AdminDashboard()),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _timer.cancel();
@@ -44,7 +58,13 @@ class _MeetingQRState extends State<MeetingQR> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('QR Rapat')),
+      appBar: AppBar(
+        title: const Text('QR Rapat'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _kembali, // Gunakan fungsi kembali yang aman
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -52,14 +72,11 @@ class _MeetingQRState extends State<MeetingQR> {
           children: [
             Text(
               widget.meeting.title,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
-              'Waktu: ${widget.meeting.dateTime}',
+              'Waktu: ${widget.meeting.startTime}', // ✅ Benar
               style: const TextStyle(fontSize: 14),
             ),
             const SizedBox(height: 24),
@@ -72,9 +89,7 @@ class _MeetingQRState extends State<MeetingQR> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-              },
+              onPressed: _kembali, // Gunakan fungsi kembali yang aman
               icon: const Icon(Icons.arrow_back),
               label: const Text('Kembali'),
             ),
