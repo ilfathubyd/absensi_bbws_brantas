@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:absen_app/screens/admin/admin_dashboard.dart'show AdminDashboard;
+import 'package:absen_app/screens/admin/admin_dashboard.dart' show AdminDashboard;
 import 'package:absen_app/screens/user/user_dashboard.dart' show UserDashboard;
-import 'package:absen_app/screens/pic/pic_dashboard.dart' show PICDashboard; // Import PIC Dashboard
+import 'package:absen_app/screens/pic/pic_dashboard.dart' show PICDashboard;
 import 'package:absen_app/Models/models/user.dart';
+import 'package:absen_app/services/auth_service.dart';
 
-late AppUser currentUser; // global user login
+late AppUser currentUser;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,7 +17,9 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _usernameCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
-  String _selectedRole = 'user'; // 'user', 'pic', 'admin'
+  final AuthService _authService = AuthService();
+
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -25,105 +28,99 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
-    final username = _usernameCtrl.text.trim();
-    final password = _passCtrl.text.trim();
+  Future<void> _login() async {
+    if (_isLoading) return;
 
-    // TODO: Validasi ke backend sesuai role
-    switch (_selectedRole) {
-      case 'admin':
-        print("Login Admin: $username");
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const AdminDashboard()),
-        );
-        break;
-      
-      case 'pic':
-        print("Login PIC: $username");
-        currentUser = AppUser(
-          id: "pic123",
-          name: username,
-          email: "$username@example.com",
-          photoUrl: "https://i.pravatar.cc/150?u=$username",
-          role: 'pic', // Tambahkan role PIC
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const PICDashboard()),
-        );
-        break;
-      
-      case 'user':
-      default:
-        // login user
-        currentUser = AppUser(
-          id: "u123",
-          name: username,
-          email: "$username@example.com",
-          photoUrl: "https://i.pravatar.cc/150?u=$username",
-          role: 'user',
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const UserDashboard()),
-        );
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final username = _usernameCtrl.text.trim();
+      final password = _passCtrl.text.trim();
+
+      // PERBAIKAN: Validasi input
+      if (username.isEmpty || password.isEmpty) {
+        throw Exception('Username dan password tidak boleh kosong');
+      }
+
+      final user = await _authService.login(username, password);
+      currentUser = user;
+
+      if (!mounted) return;
+
+      // PERBAIKAN: Debug print untuk melihat data user
+      print('Login successful:');
+      print('User ID: ${user.id}');
+      print('Username: ${user.username}');
+      print('Name: ${user.name}');
+      print('Role ID: ${user.idRole}');
+      print('Role Name: ${user.role}');
+
+      // PERBAIKAN: Navigasi berdasarkan role ID dengan fallback
+      Widget targetScreen;
+      String screenName;
+
+      switch (user.idRole) {
+        case 1: // Admin
+          targetScreen = const AdminDashboard();
+          screenName = 'Admin Dashboard';
+          break;
+        case 2: // PIC
+          targetScreen = const PICDashboard();
+          screenName = 'PIC Dashboard';
+          break;
+        case 3: // User biasa
+          targetScreen = const UserDashboard();
+          screenName = 'User Dashboard';
+          break;
+        default:
+        // PERBAIKAN: Handle role yang tidak dikenal
+          print('Unknown role ID: ${user.idRole}, defaulting to User Dashboard');
+          targetScreen = const UserDashboard();
+          screenName = 'User Dashboard (Default)';
+      }
+
+      // PERBAIKAN: Show success message dengan info role
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login berhasil! Mengalihkan ke $screenName...'),
+          backgroundColor: Colors.green[600],
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // PERBAIKAN: Delay sebentar agar user bisa melihat pesan sukses
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => targetScreen),
+      );
+
+    } catch (e) {
+      if (!mounted) return;
+
+      // PERBAIKAN: Error handling yang lebih detail
+      String errorMessage = e.toString().replaceAll('Exception: ', '');
+      print('Login error: $e');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red[600],
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
-  }
-
-  // Widget untuk radio button role
-  Widget _buildRoleRadio(String value, String title, IconData icon) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        color: _selectedRole == value 
-            ? const Color(0xFFE3F2FD) 
-            : Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: _selectedRole == value 
-              ? const Color(0xFF1565C0) 
-              : Colors.grey[300]!,
-          width: _selectedRole == value ? 2 : 1,
-        ),
-      ),
-      child: ListTile(
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-        leading: Icon(
-          icon,
-          color: _selectedRole == value 
-              ? const Color(0xFF1565C0) 
-              : Colors.grey[600],
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: _selectedRole == value 
-                ? FontWeight.bold 
-                : FontWeight.normal,
-            color: _selectedRole == value 
-                ? const Color(0xFF1565C0) 
-                : Colors.grey[700],
-          ),
-        ),
-        trailing: Radio<String>(
-          value: value,
-          groupValue: _selectedRole,
-          onChanged: (value) {
-            setState(() {
-              _selectedRole = value!;
-            });
-          },
-          activeColor: const Color(0xFF1565C0),
-        ),
-        onTap: () {
-          setState(() {
-            _selectedRole = value;
-          });
-        },
-      ),
-    );
   }
 
   @override
@@ -135,8 +132,8 @@ class _LoginScreenState extends State<LoginScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF1565C0), // Biru tua
-              Color(0xFF42A5F5), // Biru muda
+              Color(0xFF1565C0),
+              Color(0xFF42A5F5),
             ],
           ),
         ),
@@ -156,12 +153,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Icon atau Logo
+                    // Logo
                     Container(
                       height: 100,
                       width: 100,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFC107), // Background kuning
+                        color: const Color(0xFFFFC107),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
@@ -183,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Judul
+                    // Title
                     const Text(
                       'Login Absensi',
                       textAlign: TextAlign.center,
@@ -202,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 32),
 
-                    // TextField username
+                    // Username field
                     TextField(
                       controller: _usernameCtrl,
                       keyboardType: TextInputType.text,
@@ -214,9 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF1565C0),
-                          ),
+                          borderSide: const BorderSide(color: Color(0xFF1565C0)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -236,7 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // TextField password
+                    // Password field
                     TextField(
                       controller: _passCtrl,
                       decoration: InputDecoration(
@@ -247,9 +242,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF1565C0),
-                          ),
+                          borderSide: const BorderSide(color: Color(0xFF1565C0)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -267,50 +260,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         fillColor: Colors.grey[50],
                       ),
                       obscureText: true,
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Pilihan Role (User, PIC, Admin)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF5F7FA),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFF1565C0).withOpacity(0.2),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Login Sebagai:',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1565C0),
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          _buildRoleRadio('user', 'User', Icons.person),
-                          _buildRoleRadio('pic', 'PIC', Icons.supervisor_account),
-                          _buildRoleRadio('admin', 'Admin', Icons.admin_panel_settings),
-                        ],
-                      ),
+                      // PERBAIKAN: Tambah onSubmitted untuk login dengan Enter
+                      onSubmitted: (_) => _login(),
                     ),
                     const SizedBox(height: 24),
 
-                    // Tombol login
+                    // Login button
                     Container(
                       height: 50,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [
-                            Color(0xFFFFC107), // Kuning
-                            Color(0xFFFFB300), // Kuning tua
+                            Color(0xFFFFC107),
+                            Color(0xFFFFB300),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(12),
@@ -323,7 +285,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                       child: ElevatedButton(
-                        onPressed: _login,
+                        onPressed: _isLoading ? null : _login,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
@@ -331,7 +293,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text(
+                        child: _isLoading
+                            ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                        )
+                            : const Text(
                           'LOGIN',
                           style: TextStyle(
                             color: Colors.white,
@@ -342,6 +313,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
+
+                    // PERBAIKAN: Debug info dalam mode development
+                    if (const bool.fromEnvironment('dart.vm.product') == false) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Debug: Pastikan Laravel server berjalan di http://127.0.0.1:8000',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[500],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ],
                 ),
               ),
