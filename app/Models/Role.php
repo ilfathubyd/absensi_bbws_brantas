@@ -13,8 +13,14 @@ class Role extends Model
     protected $primaryKey = 'id_role';
 
     protected $fillable = [
-        'role',
+        'role', // PERBAIKAN: Seharusnya 'role', bukan 'name'
     ];
+
+    // PERBAIKAN: Tambahkan accessor untuk mendapatkan nama role
+    public function getNameAttribute()
+    {
+        return $this->role;
+    }
 
     /**
      * Mendefinisikan relasi "hasMany" ke model User.

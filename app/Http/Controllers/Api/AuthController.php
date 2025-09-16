@@ -18,8 +18,9 @@ class AuthController extends Controller
             'password' => 'required|string|min:4',
             'name'     => 'required|string',
             'phone'    => 'nullable|string',
-            'gender'   => 'nullable|in:male,female,other',
-            'division_id' => 'nullable|integer|exists:divisions,id',
+            'id_role'    => 'nullable|integer',
+            'gender'   => 'nullable|in:Male,Female',
+            'id_division' => 'nullable|integer',
             'photo'    => 'nullable|image|max:2048',
         ]);
 
@@ -62,12 +63,31 @@ class AuthController extends Controller
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
+        
+        // PERBAIKAN: Muat relasi dengan eager loading
+        $user->load(['role', 'division']);
 
         $token = $user->createToken('api_token')->plainTextToken;
 
+        // PERBAIKAN: Response yang lebih aman dan konsisten
         return response()->json([
-            'user'  => $user,
-            'token' => $token
+            'token' => $token,
+            'user'  => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'gender' => $user->gender,
+                'photo' => $user->photo,
+                'id_role' => $user->id_role,
+                'id_division' => $user->id_division,
+                // PERBAIKAN: Menggunakan relasi dan accessor yang benar
+                'role' => $user->role ? $user->role->role : null,
+                'division' => $user->division ? $user->division->division_name : null,
+                'created_at' => $user->created_at,
+                'updated_at' => $user->updated_at,
+            ]
         ]);
     }
 
@@ -79,6 +99,23 @@ class AuthController extends Controller
 
     public function profile(Request $request)
     {
-        return response()->json($request->user());
+        // Load relasi untuk response profile yang lengkap
+        $user = $request->user()->load(['role', 'division']);
+        
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->name,
+            'username' => $user->username,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'gender' => $user->gender,
+            'photo' => $user->photo,
+            'id_role' => $user->id_role,
+            'id_division' => $user->id_division,
+            'role' => $user->role ? $user->role->role : null,
+            'division' => $user->division ? $user->division->division_name : null,
+            'created_at' => $user->created_at,
+            'updated_at' => $user->updated_at,
+        ]);
     }
 }
