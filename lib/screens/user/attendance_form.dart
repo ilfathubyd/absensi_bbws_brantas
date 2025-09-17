@@ -78,7 +78,7 @@ class _AttendanceFormState extends State<AttendanceForm> {
             // Foto + identitas user
             CircleAvatar(
               radius: 40,
-              backgroundImage: NetworkImage(widget.user.photoUrl),
+              //backgroundImage: NetworkImage(widget.user.photoUrl),
             ),
             const SizedBox(height: 8),
             Text(widget.user.name, style: const TextStyle(fontSize: 20)),
