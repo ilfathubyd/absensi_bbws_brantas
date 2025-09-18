@@ -1,51 +1,35 @@
 <?php
 
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
+class CreateUsersTable extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
+    public function up()
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('username')->unique();
-            $table->string('name');
-            $table->string('phone')->nullable();
-            $table->enum('gender', ['male','female','other'])->nullable();
-            $table->string('division')->nullable(); // "devisi"
-            $table->string('photo')->nullable(); // path/url
-            $table->string('password');
+            $table->bigIncrements('id'); // bigInteger() for user ID
+            $table->unsignedInteger('id_role');
+            $table->unsignedInteger('id_division');
+            $table->string('username', 255)->unique();
+            $table->string('name', 255);
+            $table->string('email', 100)->unique();
+            $table->string('phone', 100)->nullable();
+            $table->enum('gender', ['male', 'female', 'other'])->nullable();
+            $table->string('password', 255);
+            $table->string('photo', 255)->nullable();
             $table->timestamps();
-        });
 
-        Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->string('email')->primary();
-            $table->string('token');
-            $table->timestamp('created_at')->nullable();
-        });
-
-        Schema::create('sessions', function (Blueprint $table) {
-            $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
-            $table->string('ip_address', 45)->nullable();
-            $table->text('user_agent')->nullable();
-            $table->longText('payload');
-            $table->integer('last_activity')->index();
+            // Foreign Keys
+            $table->foreign('id_role')->references('id')->on('roles')->onDelete('cascade');
+            $table->foreign('id_division')->references('id')->on('divisions')->onDelete('cascade');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
+    public function down()
     {
         Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
-        Schema::dropIfExists('sessions');
     }
-};
+}
