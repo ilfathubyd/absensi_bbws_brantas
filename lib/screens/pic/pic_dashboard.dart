@@ -13,6 +13,40 @@ class PICDashboard extends StatefulWidget {
 
 class _PICDashboardState extends State<PICDashboard> {
   bool showHistory = false;
+  String currentPIC = 'PIC User'; // Ubah menjadi variabel bukan final
+  bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+
+      // Simulasi loading data user (ganti dengan data sesungguhnya)
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      setState(() {
+        currentPIC = 'PIC User'; // Ganti dengan nama user yang login
+        _isLoading = false;
+      });
+      
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+        _errorMessage = 'Gagal memuat data: $e';
+      });
+    }
+  }
 
   // Format durasi rapat
   String _formatDuration(DateTime start, DateTime? end) {
@@ -31,9 +65,10 @@ class _PICDashboardState extends State<PICDashboard> {
 
   // Format status rapat
   String _getMeetingStatus(Meeting meeting) {
+    final now = DateTime.now();
+    
     if (meeting.endTime == null) return 'Tidak Menentu';
     
-    final now = DateTime.now();
     if (now.isAfter(meeting.endTime!)) return 'Selesai';
     if (now.isAfter(meeting.startTime)) return 'Berlangsung';
     return 'Akan Datang';
@@ -48,21 +83,102 @@ class _PICDashboardState extends State<PICDashboard> {
         return Colors.orange;
       case 'Tidak Menentu':
         return Colors.grey;
-      default:
+      case 'Akan Datang':
         return Colors.blue;
+      default:
+        return Colors.grey;
     }
+  }
+
+  void _refreshData() {
+    setState(() {
+      _loadData();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final allMeetings = MeetingRepo.getAll();
+    // Dapatkan meetings untuk PIC ini (case insensitive)
+    final picMeetings = MeetingRepo.getByResponsible(currentPIC);
     
-    // PIC hanya bisa melihat rapat yang sudah selesai (history)
-    final historyMeetings = allMeetings.where((m) => 
-      m.startTime.isBefore(DateTime.now())
+    // History meetings: meeting yang sudah selesai
+    final historyMeetings = picMeetings.where((m) => 
+      m.endTime != null && DateTime.now().isAfter(m.endTime!)
     ).toList();
 
-    final meetings = showHistory ? historyMeetings : [];
+    // Upcoming meetings: meeting yang akan datang
+    final upcomingMeetings = picMeetings.where((m) => 
+      m.endTime == null || DateTime.now().isBefore(m.endTime!)
+    ).toList();
+
+    final meetings = showHistory ? historyMeetings : upcomingMeetings;
+
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4CAF50)),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Memuat data rapat...',
+                style: TextStyle(
+                  color: Color(0xFF4CAF50),
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'PIC: $currentPIC',
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_hasError) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Colors.red,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.red,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _refreshData,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4CAF50),
+                ),
+                child: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
@@ -79,13 +195,30 @@ class _PICDashboardState extends State<PICDashboard> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFF4CAF50), // Hijau untuk PIC
+                Color(0xFF4CAF50),
                 Color(0xFF66BB6A),
               ],
             ),
           ),
         ),
         actions: [
+          // Tombol refresh
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _refreshData,
+          ),
+          // Toggle untuk show/hide history
+          IconButton(
+            icon: Icon(
+              showHistory ? Icons.event : Icons.history,
+              color: Colors.white,
+            ),
+            onPressed: () {
+              setState(() {
+                showHistory = !showHistory;
+              });
+            },
+          ),
           Container(
             margin: const EdgeInsets.only(right: 8),
             child: PopupMenuButton<String>(
@@ -101,9 +234,9 @@ class _PICDashboardState extends State<PICDashboard> {
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'username',
-                  child: Text('PIC User'),
+                  child: Text('PIC: $currentPIC'),
                 ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(
@@ -126,7 +259,7 @@ class _PICDashboardState extends State<PICDashboard> {
           borderRadius: BorderRadius.circular(16),
           gradient: const LinearGradient(
             colors: [
-              Color(0xFF4CAF50), // Hijau untuk PIC
+              Color(0xFF4CAF50),
               Color(0xFF66BB6A),
             ],
           ),
@@ -140,12 +273,11 @@ class _PICDashboardState extends State<PICDashboard> {
         ),
         child: FloatingActionButton.extended(
           onPressed: () async {
-            // PIC hanya bisa membuat pengajuan rapat
             await Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const CreatePengajuan()),
             );
-            setState(() {});
+            _refreshData();
           },
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -156,342 +288,276 @@ class _PICDashboardState extends State<PICDashboard> {
           icon: const Icon(Icons.add, color: Colors.white),
         ),
       ),
-      body: allMeetings.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF4CAF50).withOpacity(0.1),
-                      shape: BoxShape.circle,
+      body: Column(
+        children: [
+          // Header info PIC
+          Container(
+            padding: const EdgeInsets.all(12),
+            color: const Color(0xFFE8F5E9),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+            ),
+          ),
+
+          Expanded(
+            child: picMeetings.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4CAF50).withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.meeting_room_outlined,
+                            size: 60,
+                            color: Color(0xFF4CAF50),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Belum ada rapat',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF4CAF50),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Tekan tombol "+" untuk mengajukan rapat baru',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'PIC: $currentPIC',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
                     ),
-                    child: const Icon(
-                      Icons.meeting_room_outlined,
-                      size: 60,
-                      color: Color(0xFF4CAF50),
-                    ),
+                  )
+                : Column(
+                    children: [
+                      // Header statistik
+                      Container(
+                        margin: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF4CAF50).withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildStatItem(Icons.event, 'Total', picMeetings.length),
+                            _buildStatItem(Icons.check_circle, 'Selesai', historyMeetings.length),
+                            _buildStatItem(Icons.upcoming, 'Akan Datang', upcomingMeetings.length),
+                          ],
+                        ),
+                      ),
+
+                      // Toggle history/upcoming
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              showHistory ? 'History Rapat' : 'Rapat Akan Datang',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF4CAF50),
+                              ),
+                            ),
+                            Text(
+                              '${meetings.length} items',
+                              style: const TextStyle(
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // List rapat
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: _loadData,
+                          backgroundColor: const Color(0xFF4CAF50),
+                          color: Colors.white,
+                          child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: meetings.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 12),
+                            itemBuilder: (context, i) {
+                              final Meeting m = meetings[i];
+                              final status = _getMeetingStatus(m);
+                              final statusColor = _getStatusColor(status);
+
+                              return _buildMeetingCard(m, status, statusColor);
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Belum ada rapat',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF4CAF50),
-                    ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String label, int count) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.white, size: 32),
+        const SizedBox(height: 8),
+        Text(
+          '$count',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMeetingCard(Meeting m, String status, Color statusColor) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white,
+              Color(0xFFE8F5E8),
+            ],
+          ),
+        ),
+        child: ListTile(
+          contentPadding: const EdgeInsets.all(16),
+          leading: Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: const Color(0xFF4CAF50),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              showHistory ? Icons.history : Icons.event,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                m.title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Color(0xFF4CAF50),
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: statusColor, width: 1),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Tekan tombol "+" untuk mengajukan rapat baru',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                    textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildInfoRow(Icons.meeting_room, m.room),
+                const SizedBox(height: 4),
+                _buildInfoRow(
+                  Icons.access_time,
+                  '${MeetingRepo.formatDate(m.startTime)}${m.endTime != null ? ' - ${MeetingRepo.formatTime(m.endTime!)}' : ''}',
+                ),
+                if (m.endTime != null) ...[
+                  const SizedBox(height: 4),
+                  _buildInfoRow(
+                    Icons.timer,
+                    'Durasi: ${_formatDuration(m.startTime, m.endTime)}',
                   ),
                 ],
-              ),
-            )
-          : Column(
-              children: [
-                // Header statistik untuk PIC
-                Container(
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF4CAF50).withOpacity(0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Column(
-                        children: [
-                          const Icon(
-                            Icons.event,
-                            color: Colors.white,
-                            size: 32,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${historyMeetings.length}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Text(
-                            'Total History',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        height: 60,
-                        width: 1,
-                        color: Colors.white.withOpacity(0.3),
-                      ),
-                      Column(
-                        children: [
-                          const Icon(
-                            Icons.check_circle,
-                            color: Colors.white,
-                            size: 32,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${historyMeetings.where((m) => _getMeetingStatus(m) == 'Selesai').length}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Text(
-                            'Selesai',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Hanya show history untuk PIC
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: const Text(
-                    'History Rapat yang Selesai',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF4CAF50),
-                    ),
-                  ),
-                ),
-
-                // List rapat (hanya history)
-                Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: meetings.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, i) {
-                      final Meeting m = meetings[i];
-                      final status = _getMeetingStatus(m);
-                      final statusColor = _getStatusColor(status);
-
-                      return Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white,
-                                Color(0xFFE8F5E8), // Hijau muda untuk background
-                              ],
-                            ),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
-                            leading: Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF4CAF50),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.history,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                            title: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  m.title,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    color: Color(0xFF4CAF50),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: statusColor.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: statusColor,
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    status,
-                                    style: TextStyle(
-                                      color: statusColor,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Ruangan Rapat
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.meeting_room,
-                                        size: 16,
-                                        color: Colors.grey,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          m.room,
-                                          style: const TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 14,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  
-                                  // Jadwal Rapat
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.access_time,
-                                        size: 16,
-                                        color: Colors.grey,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          '${MeetingRepo.formatDate(m.startTime)}${m.endTime != null ? ' - ${MeetingRepo.formatTime(m.endTime!)}' : ''}',
-                                          style: const TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  
-                                  // Penanggung Jawab
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.person,
-                                        size: 16,
-                                        color: Colors.grey,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          m.responsible,
-                                          style: const TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 14,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  
-                                  // Durasi rapat
-                                  if (m.endTime != null) ...[
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.timer,
-                                          size: 16,
-                                          color: Colors.grey,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Durasi: ${_formatDuration(m.startTime, m.endTime)}',
-                                          style: const TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                  
-                                  // ID Rapat
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.tag,
-                                        size: 16,
-                                        color: Colors.grey,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'ID: ${m.id}',
-                                        style: const TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Hapus tombol QR Code dari trailing
-                            trailing: null, // Menghapus tombol QR Code
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 80),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 14,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

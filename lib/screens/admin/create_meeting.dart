@@ -18,32 +18,59 @@ class _CreateMeetingState extends State<CreateMeeting> {
   TimeOfDay? _selectedEndTime;
   String? _selectedRoom;
   String? _selectedResponsible;
-  bool _isIndefinite = false; // Checkbox untuk rapat tidak menentu
+  bool _isIndefinite = false;
 
   // List ruangan yang tersedia
   final List<String> _availableRooms = [
-    'Ruang Rapat A',
-    'Ruang Rapat B',
-    'Ruang Rapat C',
-    'Ruang Konferensi',
-    'Auditorium',
-    'Meeting Room 1',
-    'Meeting Room 2',
-    'Ruang Diskusi',
+    'Ruang Pertemuan Bendungan Bagong (Bid. OP)',
+    'Ruang Pertemuan Bendungan Sutami',
+    'Ruang Pertemuan Bendungan Tugu',
+    'Ruang Pertemuan Gunung Semeru (PJSA Bawah)',
+    'Ruang Rapat Bendungan Nipah',
+    'Ruang Rapat Bidang KPI SDA',
+    'Ruang Rapat KPISDA',
+    'Ruang Rapat PPK Program',
+    'Ruang Rapat Satker PJPA (PJSA Atas)',
+    'Ruang Rapat Semantok (PJSA Atas / Bendungan)',
   ];
 
   // List penanggung jawab yang tersedia
   final List<String> _availableResponsible = [
-    'Ahmad Fadli',
-    'Siti Nurhaliza',
-    'Budi Santoso',
-    'Maya Sari',
-    'Dedi Kurniawan',
-    'Rina Wijayanti',
-    'Agus Prasetyo',
-    'Lina Maharani',
-    'Rudi Hermawan',
-    'Dewi Kartika',
+    'Bagian Tata Usaha',
+    'Bidang KPI',
+    'Bidang OP',
+    'Bidang PJPA',
+    'Bidang PJSA',
+    'PPK ATAB 1',
+    'PPK ATAB 2',
+    'PPK ATAB 3',
+    'PPK BMN',
+    'PPK Bendungan 1',
+    'PPK Bendungan 2',
+    'PPK Bendungan 3',
+    'PPK IRWA 1',
+    'PPK IRWA 2',
+    'PPK OP 1',
+    'PPK OP 2',
+    'PPK OP 3',
+    'PPK OP 4',
+    'PPK OP 5',
+    'PPK PSDA',
+    'PPK Perencanaan Bendungan',
+    'PPK Perencanaan Program',
+    'PPK SP 1',
+    'PPK SP 2',
+    'PPK SP 3',
+    'PPK SP 4',
+    'PPK Tanah Balai',
+    'PPK Tanah Bendungan',
+    'PPK Tata Laksana',
+    'Satker ATAB',
+    'Satker Balai',
+    'Satker Bendungan',
+    'Satker OP',
+    'Satker PJPA',
+    'Satker PJSA',
   ];
 
   @override
@@ -102,7 +129,6 @@ class _CreateMeetingState extends State<CreateMeeting> {
 
     setState(() {
       _selectedStartTime = time;
-      // Jika end time belum dipilih atau start time lebih besar dari end time, reset end time
       if (_selectedEndTime == null || _isTimeAfter(time, _selectedEndTime!)) {
         _selectedEndTime = null;
       }
@@ -141,7 +167,6 @@ class _CreateMeetingState extends State<CreateMeeting> {
     );
     if (time == null) return;
 
-    // Validasi: end time harus setelah start time
     if (!_isTimeAfter(time, _selectedStartTime!)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -157,7 +182,6 @@ class _CreateMeetingState extends State<CreateMeeting> {
     });
   }
 
-  // Helper function untuk membandingkan waktu
   bool _isTimeAfter(TimeOfDay time1, TimeOfDay time2) {
     final now = DateTime.now();
     final datetime1 = DateTime(now.year, now.month, now.day, time1.hour, time1.minute);
@@ -188,7 +212,6 @@ class _CreateMeetingState extends State<CreateMeeting> {
       return;
     }
 
-    // Combine date dengan start time
     final startDateTime = DateTime(
       _selectedDate!.year,
       _selectedDate!.month,
@@ -197,7 +220,6 @@ class _CreateMeetingState extends State<CreateMeeting> {
       _selectedStartTime!.minute,
     );
 
-    // Combine date dengan end time (jika tidak indefinite)
     DateTime? endDateTime;
     if (!_isIndefinite && _selectedEndTime != null) {
       endDateTime = DateTime(
@@ -212,15 +234,30 @@ class _CreateMeetingState extends State<CreateMeeting> {
     final meeting = MeetingRepo.add(
       title: _titleCtrl.text.trim(),
       startTime: startDateTime,
-      endTime: endDateTime, // Bisa null jika indefinite
+      endTime: endDateTime,
       room: _selectedRoom!,
       responsible: _selectedResponsible!,
       pic: 'default_pic.jpg',
     );
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => MeetingQR(meeting: meeting)),
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            const Text('Rapat berhasil dibuat!'),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
     );
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   void _showErrorSnackbar(String message) {
@@ -272,392 +309,461 @@ class _CreateMeetingState extends State<CreateMeeting> {
         ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              // Header Card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFC107), Color(0xFFFFB300)],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFFC107).withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Column(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final bool isSmallScreen = constraints.maxWidth < 600;
+          
+          return SingleChildScrollView(
+            padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
+              ),
+              child: IntrinsicHeight(
+                child: Column(
                   children: [
-                    Icon(Icons.event_note, size: 48, color: Colors.white),
-                    SizedBox(height: 12),
-                    Text(
-                      'Buat Rapat Baru',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                    // Header Card
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFFC107), Color(0xFFFFB300)],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFFC107).withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.event_note, 
+                              size: isSmallScreen ? 36 : 48, 
+                              color: Colors.white),
+                          SizedBox(height: isSmallScreen ? 8 : 12),
+                          Text(
+                            'Buat Rapat Baru',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: isSmallScreen ? 18 : 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          SizedBox(height: isSmallScreen ? 4 : 8),
+                          Text(
+                            'Lengkapi informasi rapat di bawah ini',
+                            style: TextStyle(
+                              color: Colors.white, 
+                              fontSize: isSmallScreen ? 12 : 14
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Lengkapi informasi rapat di bawah ini',
-                      style: TextStyle(color: Colors.white, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
+                    SizedBox(height: isSmallScreen ? 16 : 24),
 
-              // Form Card
-              Card(
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Judul Rapat
-                        const Text(
-                          'Informasi Rapat',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1565C0),
-                          ),
+                    // Form Card
+                    Expanded(
+                      child: Card(
+                        elevation: 8,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                        const SizedBox(height: 20),
-
-                        TextFormField(
-                          controller: _titleCtrl,
-                          decoration: InputDecoration(
-                            labelText: 'Judul Rapat',
-                            prefixIcon: const Icon(
-                              Icons.title,
-                              color: Color(0xFF1565C0),
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color(0xFF1565C0),
-                                width: 2,
-                              ),
-                            ),
-                            labelStyle: const TextStyle(
-                              color: Color(0xFF1565C0),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[50],
-                          ),
-                          validator: (v) => (v == null || v.trim().isEmpty)
-                              ? 'Judul wajib diisi'
-                              : null,
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Dropdown Ruangan
-                        DropdownButtonFormField<String>(
-                          value: _selectedRoom,
-                          decoration: InputDecoration(
-                            labelText: 'Ruangan Rapat',
-                            prefixIcon: const Icon(
-                              Icons.meeting_room,
-                              color: Color(0xFF1565C0),
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color(0xFF1565C0),
-                                width: 2,
-                              ),
-                            ),
-                            labelStyle: const TextStyle(
-                              color: Color(0xFF1565C0),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[50],
-                          ),
-                          items: _availableRooms.map((String room) {
-                            return DropdownMenuItem<String>(
-                              value: room,
-                              child: Text(room),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _selectedRoom = newValue;
-                            });
-                          },
-                          validator: (v) => v == null ? 'Pilih ruangan rapat' : null,
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Dropdown Penanggung Jawab
-                        DropdownButtonFormField<String>(
-                          value: _selectedResponsible,
-                          decoration: InputDecoration(
-                            labelText: 'Penanggung Jawab',
-                            prefixIcon: const Icon(
-                              Icons.person,
-                              color: Color(0xFF1565C0),
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color(0xFF1565C0),
-                                width: 2,
-                              ),
-                            ),
-                            labelStyle: const TextStyle(
-                              color: Color(0xFF1565C0),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[50],
-                          ),
-                          items: _availableResponsible.map((String person) {
-                            return DropdownMenuItem<String>(
-                              value: person,
-                              child: Text(person),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _selectedResponsible = newValue;
-                            });
-                          },
-                          validator: (v) => v == null ? 'Pilih penanggung jawab' : null,
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Tanggal & Waktu Rapat
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF3F8FF),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: const Color(0xFF1565C0).withOpacity(0.3),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Icon(
-                                    Icons.schedule,
-                                    color: Color(0xFF1565C0),
-                                    size: 20,
+                        child: Padding(
+                          padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Informasi Rapat',
+                                  style: TextStyle(
+                                    fontSize: isSmallScreen ? 16 : 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF1565C0),
                                   ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Jadwal Rapat',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
+                                ),
+                                SizedBox(height: isSmallScreen ? 12 : 20),
+
+                                // Judul Rapat
+                                TextFormField(
+                                  controller: _titleCtrl,
+                                  decoration: InputDecoration(
+                                    labelText: 'Judul Rapat',
+                                    prefixIcon: const Icon(
+                                      Icons.title,
                                       color: Color(0xFF1565C0),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-
-                              // Tanggal
-                              Row(
-                                children: [
-                                  const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-                                  const SizedBox(width: 8),
-                                  const Text('Tanggal: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  Text(
-                                    _selectedDate == null 
-                                      ? 'Belum dipilih' 
-                                      : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
-                                    style: TextStyle(
-                                      color: _selectedDate == null ? Colors.grey[600] : const Color(0xFF1565C0),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                  ),
-                                  const Spacer(),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFFC107),
-                                      borderRadius: BorderRadius.circular(6),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(color: Colors.grey[300]!),
                                     ),
-                                    child: IconButton(
-                                      icon: const Icon(Icons.calendar_today, size: 18, color: Colors.white),
-                                      onPressed: _pickDate,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-
-                              // Jam Mulai
-                              Row(
-                                children: [
-                                  const Icon(Icons.play_arrow, size: 18, color: Colors.green),
-                                  const SizedBox(width: 8),
-                                  const Text('Jam Mulai: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  Text(
-                                    _formatTime(_selectedStartTime),
-                                    style: TextStyle(
-                                      color: _selectedStartTime == null ? Colors.grey[600] : const Color(0xFF1565C0),
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF4CAF50),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: IconButton(
-                                      icon: const Icon(Icons.access_time, size: 18, color: Colors.white),
-                                      onPressed: _pickStartTime,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-
-                              // Jam Selesai
-                              if (!_isIndefinite) ...[
-                                Row(
-                                  children: [
-                                    const Icon(Icons.stop, size: 18, color: Colors.red),
-                                    const SizedBox(width: 8),
-                                    const Text('Jam Selesai: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                                    Text(
-                                      _formatTime(_selectedEndTime),
-                                      style: TextStyle(
-                                        color: _selectedEndTime == null ? Colors.grey[600] : const Color(0xFF1565C0),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF1565C0),
+                                        width: 2,
                                       ),
                                     ),
-                                    const Spacer(),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF44336),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: IconButton(
-                                        icon: const Icon(Icons.access_time, size: 18, color: Colors.white),
-                                        onPressed: _pickEndTime,
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
+                                    labelStyle: const TextStyle(
+                                      color: Color(0xFF1565C0),
                                     ),
-                                  ],
+                                    filled: true,
+                                    fillColor: Colors.grey[50],
+                                  ),
+                                  validator: (v) => (v == null || v.trim().isEmpty)
+                                      ? 'Judul wajib diisi'
+                                      : null,
                                 ),
-                                const SizedBox(height: 12),
-                              ],
+                                SizedBox(height: isSmallScreen ? 12 : 20),
 
-                              // Checkbox Selesai Tidak Menentu
-                              Row(
-                                children: [
-                                  Checkbox(
-                                    value: _isIndefinite,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _isIndefinite = value ?? false;
-                                        if (_isIndefinite) {
-                                          _selectedEndTime = null;
-                                        }
-                                      });
-                                    },
-                                    activeColor: const Color(0xFF1565C0),
+                                // Dropdown Ruangan
+                                DropdownButtonFormField<String>(
+                                  value: _selectedRoom,
+                                  isExpanded: true, // Penting untuk responsivitas
+                                  decoration: InputDecoration(
+                                    labelText: 'Ruangan Rapat',
+                                    prefixIcon: const Icon(
+                                      Icons.meeting_room,
+                                      color: Color(0xFF1565C0),
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(color: Colors.grey[300]!),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF1565C0),
+                                        width: 2,
+                                      ),
+                                    ),
+                                    labelStyle: const TextStyle(
+                                      color: Color(0xFF1565C0),
+                                    ),
+                                    filled: true,
+                                    fillColor: Colors.grey[50],
                                   ),
-                                  const Text('Selesai tidak menentu'),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.help_outline, size: 16, color: Colors.grey),
-                                ],
-                              ),
-                            ],
+                                  items: _availableRooms.map((String room) {
+                                    return DropdownMenuItem<String>(
+                                      value: room,
+                                      child: Text(
+                                        room,
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (String? newValue) {
+                                    setState(() {
+                                      _selectedRoom = newValue;
+                                    });
+                                  },
+                                  validator: (v) => v == null ? 'Pilih ruangan rapat' : null,
+                                ),
+                                SizedBox(height: isSmallScreen ? 12 : 20),
+
+                                // Dropdown Penanggung Jawab
+                                DropdownButtonFormField<String>(
+                                  value: _selectedResponsible,
+                                  isExpanded: true, // Penting untuk responsivitas
+                                  decoration: InputDecoration(
+                                    labelText: 'Penanggung Jawab',
+                                    prefixIcon: const Icon(
+                                      Icons.person,
+                                      color: Color(0xFF1565C0),
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(color: Colors.grey[300]!),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF1565C0),
+                                        width: 2,
+                                      ),
+                                    ),
+                                    labelStyle: const TextStyle(
+                                      color: Color(0xFF1565C0),
+                                    ),
+                                    filled: true,
+                                    fillColor: Colors.grey[50],
+                                  ),
+                                  items: _availableResponsible.map((String person) {
+                                    return DropdownMenuItem<String>(
+                                      value: person,
+                                      child: Text(
+                                        person,
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (String? newValue) {
+                                    setState(() {
+                                      _selectedResponsible = newValue;
+                                    });
+                                  },
+                                  validator: (v) => v == null ? 'Pilih penanggung jawab' : null,
+                                ),
+                                SizedBox(height: isSmallScreen ? 12 : 20),
+
+                                // Tanggal & Waktu Rapat
+                                Container(
+                                  width: double.infinity,
+                                  padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3F8FF),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: const Color(0xFF1565C0).withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.schedule,
+                                            color: const Color(0xFF1565C0),
+                                            size: isSmallScreen ? 16 : 20,
+                                          ),
+                                          SizedBox(width: isSmallScreen ? 4 : 8),
+                                          Text(
+                                            'Jadwal Rapat',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: const Color(0xFF1565C0),
+                                              fontSize: isSmallScreen ? 14 : 16,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: isSmallScreen ? 8 : 12),
+
+                                      // Tanggal
+                                      Row(
+                                        children: [
+                                          Icon(Icons.calendar_today, 
+                                              size: isSmallScreen ? 14 : 18, 
+                                              color: Colors.grey),
+                                          SizedBox(width: isSmallScreen ? 4 : 8),
+                                          Text('Tanggal: ', 
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: isSmallScreen ? 12 : 14
+                                              )),
+                                          Expanded(
+                                            child: Text(
+                                              _selectedDate == null 
+                                                ? 'Belum dipilih' 
+                                                : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+                                              style: TextStyle(
+                                                color: _selectedDate == null 
+                                                  ? Colors.grey[600] 
+                                                  : const Color(0xFF1565C0),
+                                                fontSize: isSmallScreen ? 12 : 14,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          SizedBox(width: isSmallScreen ? 4 : 8),
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFFFC107),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: IconButton(
+                                              icon: Icon(Icons.calendar_today, 
+                                                        size: isSmallScreen ? 14 : 18, 
+                                                        color: Colors.white),
+                                              onPressed: _pickDate,
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: isSmallScreen ? 8 : 12),
+
+                                      // Jam Mulai
+                                      Row(
+                                        children: [
+                                          Icon(Icons.play_arrow, 
+                                              size: isSmallScreen ? 14 : 18, 
+                                              color: Colors.green),
+                                          SizedBox(width: isSmallScreen ? 4 : 8),
+                                          Text('Jam Mulai: ', 
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: isSmallScreen ? 12 : 14
+                                              )),
+                                          Expanded(
+                                            child: Text(
+                                              _formatTime(_selectedStartTime),
+                                              style: TextStyle(
+                                                color: _selectedStartTime == null 
+                                                  ? Colors.grey[600] 
+                                                  : const Color(0xFF1565C0),
+                                                fontSize: isSmallScreen ? 12 : 14,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          SizedBox(width: isSmallScreen ? 4 : 8),
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF4CAF50),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: IconButton(
+                                              icon: Icon(Icons.access_time, 
+                                                        size: isSmallScreen ? 14 : 18, 
+                                                        color: Colors.white),
+                                              onPressed: _pickStartTime,
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: isSmallScreen ? 8 : 12),
+
+                                      // Jam Selesai
+                                      if (!_isIndefinite) ...[
+                                        Row(
+                                          children: [
+                                            Icon(Icons.stop, 
+                                                size: isSmallScreen ? 14 : 18, 
+                                                color: Colors.red),
+                                            SizedBox(width: isSmallScreen ? 4 : 8),
+                                            Text('Jam Selesai: ', 
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: isSmallScreen ? 12 : 14
+                                                )),
+                                            Expanded(
+                                              child: Text(
+                                                _formatTime(_selectedEndTime),
+                                                style: TextStyle(
+                                                  color: _selectedEndTime == null 
+                                                    ? Colors.grey[600] 
+                                                    : const Color(0xFF1565C0),
+                                                  fontSize: isSmallScreen ? 12 : 14,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            SizedBox(width: isSmallScreen ? 4 : 8),
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF44336),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: IconButton(
+                                                icon: Icon(Icons.access_time, 
+                                                          size: isSmallScreen ? 14 : 18, 
+                                                          color: Colors.white),
+                                                onPressed: _pickEndTime,
+                                                padding: EdgeInsets.zero,
+                                                constraints: const BoxConstraints(),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        SizedBox(height: isSmallScreen ? 8 : 12),
+                                      ],
+
+                                      // Checkbox Selesai Tidak Menentu
+                                      Row(
+                                        children: [
+                                          Checkbox(
+                                            value: _isIndefinite,
+                                            onChanged: (value) {
+                                              setState(() {
+                                                _isIndefinite = value ?? false;
+                                                if (_isIndefinite) {
+                                                  _selectedEndTime = null;
+                                                }
+                                              });
+                                            },
+                                            activeColor: const Color(0xFF1565C0),
+                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          ),
+                                          Text(
+                                            'Selesai tidak menentu',
+                                            style: TextStyle(
+                                              fontSize: isSmallScreen ? 12 : 14
+                                            ),
+                                          ),
+                                          SizedBox(width: isSmallScreen ? 2 : 4),
+                                          Icon(Icons.help_outline, 
+                                              size: isSmallScreen ? 12 : 16, 
+                                              color: Colors.grey),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
+                    SizedBox(height: isSmallScreen ? 16 : 24),
 
-              // Tombol Simpan
-              Container(
-                width: double.infinity,
-                height: 55,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF1565C0).withOpacity(0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
+                    // Tombol Simpan
+                    SizedBox(
+                      width: double.infinity,
+                      height: isSmallScreen ? 45 : 55,
+                      child: ElevatedButton.icon(
+                        onPressed: _save,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1565C0),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 6,
+                          shadowColor: const Color(0xFF1565C0).withOpacity(0.4),
+                        ),
+                        icon: const Icon(Icons.save),
+                        label: Text(
+                          'Simpan Rapat',
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 14 : 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
                     ),
+                    SizedBox(height: isSmallScreen ? 16 : 20),
                   ],
                 ),
-                child: ElevatedButton.icon(
-                  onPressed: _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  icon: const Icon(Icons.save, color: Colors.white),
-                  label: const Text(
-                    'Simpan & Tampilkan QR',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
               ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

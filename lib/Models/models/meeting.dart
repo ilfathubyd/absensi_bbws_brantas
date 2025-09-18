@@ -2,26 +2,26 @@
 class Meeting {
   final String id;
   final String title;
-  final String description; // Tambahkan field description
+  final String description;
   final DateTime startTime;
   final DateTime? endTime;
   final String room;
   final String responsible;
   final String pic;
-  final String status; // 'pending', 'approved', 'rejected'
+  final String status;
   final bool isApproved;
 
   Meeting({
     required this.id,
     required this.title,
-    this.description = '',
+    required this.description,
     required this.startTime,
     this.endTime,
     required this.room,
     required this.responsible,
     required this.pic,
-    this.status = 'pending',
-    this.isApproved = false,
+    required this.status,
+    required this.isApproved,
   });
 
   // Getter untuk kompatibilitas dengan kode yang menggunakan dateTime

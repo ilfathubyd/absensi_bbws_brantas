@@ -7,8 +7,8 @@ class MeetingRequest {
   final String requester;
   final String requesterId;
   final DateTime requestTime;
-  final String status; // 'pending', 'approved', 'rejected'
-  final String? rejectionReason; // Tambahkan field untuk alasan penolakan
+  final String status;
+  final String? rejectionReason; // Tambahkan field ini
 
   MeetingRequest({
     required this.id,
@@ -19,7 +19,7 @@ class MeetingRequest {
     required this.requester,
     required this.requesterId,
     required this.requestTime,
-    this.status = 'pending',
-    this.rejectionReason, // Tambahkan parameter opsional
+    required this.status,
+    this.rejectionReason, // Tambahkan parameter ini
   });
 }

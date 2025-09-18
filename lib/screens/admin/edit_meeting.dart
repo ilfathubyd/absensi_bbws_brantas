@@ -3,7 +3,7 @@ import 'package:absen_app/Models/services/meeting_repo.dart' show MeetingRepo;
 import 'package:flutter/material.dart';
 
 class EditMeeting extends StatefulWidget {
-  final meeting;
+  final Meeting meeting; // Ubah menjadi tipe Meeting yang spesifik
   
   const EditMeeting({super.key, required this.meeting});
 
@@ -13,18 +13,29 @@ class EditMeeting extends StatefulWidget {
 
 class _EditMeetingState extends State<EditMeeting> {
   late TextEditingController _titleController;
-  late DateTime _selectedDateTime;
+  late TextEditingController _descriptionController;
+  late TextEditingController _roomController;
+  late TextEditingController _responsibleController;
+  late DateTime _selectedStartTime;
+  late DateTime? _selectedEndTime;
   
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.meeting.title);
-    _selectedDateTime = widget.meeting.dateTime;
+    _descriptionController = TextEditingController(text: widget.meeting.description);
+    _roomController = TextEditingController(text: widget.meeting.room);
+    _responsibleController = TextEditingController(text: widget.meeting.responsible);
+    _selectedStartTime = widget.meeting.startTime;
+    _selectedEndTime = widget.meeting.endTime;
   }
 
   @override
   void dispose() {
     _titleController.dispose();
+    _descriptionController.dispose();
+    _roomController.dispose();
+    _responsibleController.dispose();
     super.dispose();
   }
 
@@ -169,10 +180,92 @@ class _EditMeetingState extends State<EditMeeting> {
                     ),
                   ),
                   
+                  const SizedBox(height: 16),
+                  
+                  const Text(
+                    'Deskripsi',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1565C0),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _descriptionController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: 'Masukkan deskripsi rapat',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF1565C0)),
+                      ),
+                      prefixIcon: const Icon(Icons.description, color: Color(0xFF1565C0)),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  const Text(
+                    'Ruangan',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1565C0),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _roomController,
+                    decoration: InputDecoration(
+                      hintText: 'Masukkan ruangan rapat',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF1565C0)),
+                      ),
+                      prefixIcon: const Icon(Icons.meeting_room, color: Color(0xFF1565C0)),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  const Text(
+                    'Penanggung Jawab',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1565C0),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _responsibleController,
+                    decoration: InputDecoration(
+                      hintText: 'Masukkan penanggung jawab',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF1565C0)),
+                      ),
+                      prefixIcon: const Icon(Icons.person, color: Color(0xFF1565C0)),
+                    ),
+                  ),
+                  
                   const SizedBox(height: 24),
                   
                   const Text(
-                    'Tanggal & Waktu',
+                    'Waktu Mulai',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -181,7 +274,7 @@ class _EditMeetingState extends State<EditMeeting> {
                   ),
                   const SizedBox(height: 8),
                   InkWell(
-                    onTap: _selectDateTime,
+                    onTap: () => _selectDateTime(isStartTime: true),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                       decoration: BoxDecoration(
@@ -194,10 +287,50 @@ class _EditMeetingState extends State<EditMeeting> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              MeetingRepo.formatDate(_selectedDateTime),
+                              MeetingRepo.formatDate(_selectedStartTime),
                               style: const TextStyle(
                                 fontSize: 16,
                                 color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  const Text(
+                    'Waktu Selesai (Opsional)',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1565C0),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () => _selectDateTime(isStartTime: false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.access_time, color: Color(0xFF1565C0)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _selectedEndTime != null 
+                                ? MeetingRepo.formatDate(_selectedEndTime!)
+                                : 'Pilih waktu selesai (opsional)',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: _selectedEndTime != null ? Colors.black87 : Colors.grey,
                               ),
                             ),
                           ),
@@ -256,10 +389,12 @@ class _EditMeetingState extends State<EditMeeting> {
     );
   }
 
-  Future<void> _selectDateTime() async {
+  Future<void> _selectDateTime({required bool isStartTime}) async {
+    final initialDate = isStartTime ? _selectedStartTime : (_selectedEndTime ?? _selectedStartTime.add(const Duration(hours: 1)));
+    
     final date = await showDatePicker(
       context: context,
-      initialDate: _selectedDateTime,
+      initialDate: initialDate,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
@@ -280,7 +415,7 @@ class _EditMeetingState extends State<EditMeeting> {
     if (date != null && mounted) {
       final time = await showTimePicker(
         context: context,
-        initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
+        initialTime: TimeOfDay.fromDateTime(initialDate),
         builder: (context, child) {
           return Theme(
             data: Theme.of(context).copyWith(
@@ -296,15 +431,25 @@ class _EditMeetingState extends State<EditMeeting> {
         },
       );
 
-      if (time != null) {
+      if (time != null && mounted) {
+        final newDateTime = DateTime(
+          date.year,
+          date.month,
+          date.day,
+          time.hour,
+          time.minute,
+        );
+
         setState(() {
-          _selectedDateTime = DateTime(
-            date.year,
-            date.month,
-            date.day,
-            time.hour,
-            time.minute,
-          );
+          if (isStartTime) {
+            _selectedStartTime = newDateTime;
+            // Jika end time sebelum start time, reset end time
+            if (_selectedEndTime != null && _selectedEndTime!.isBefore(newDateTime)) {
+              _selectedEndTime = null;
+            }
+          } else {
+            _selectedEndTime = newDateTime;
+          }
         });
       }
     }
@@ -321,27 +466,61 @@ class _EditMeetingState extends State<EditMeeting> {
       return;
     }
 
-   final updatedMeeting = Meeting(
+    if (_roomController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ruangan tidak boleh kosong'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_responsibleController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Penanggung jawab tidak boleh kosong'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Validasi: end time harus setelah start time jika diisi
+    if (_selectedEndTime != null && _selectedEndTime!.isBefore(_selectedStartTime)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Waktu selesai harus setelah waktu mulai'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final updatedMeeting = Meeting(
       id: widget.meeting.id,
       title: _titleController.text.trim(),
-      startTime: _selectedDateTime,
-      endTime: widget.meeting.endTime, // atau null jika tidak ada
-      room: widget.meeting.room, // pertahankan room lama atau buat controller baru
-      pic: widget.meeting.pic,   // pertahankan pic lama
-      responsible: widget.meeting.responsible, // pertahankan responsible lama
-);
+      description: _descriptionController.text.trim(),
+      startTime: _selectedStartTime,
+      endTime: _selectedEndTime,
+      room: _roomController.text.trim(),
+      responsible: _responsibleController.text.trim(),
+      pic: widget.meeting.pic,
+      status: widget.meeting.status,
+      isApproved: widget.meeting.isApproved,
+    );
 
-try {
-  MeetingRepo.update(updatedMeeting); // Hapus cast yang tidak perlu
-  
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text('Rapat berhasil diperbarui'),
-      backgroundColor: Colors.green,
-    ),
-  );
+    try {
+      MeetingRepo.update(updatedMeeting);
       
-      Navigator.pop(context, true); // Return true untuk indicate success
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Rapat berhasil diperbarui'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      Navigator.pop(context, true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -406,7 +585,7 @@ try {
         ),
       );
       
-      Navigator.pop(context, true); // Return true untuk indicate success
+      Navigator.pop(context, true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
