@@ -4,35 +4,34 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
+class CreateRapatsTable extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-public function up()
-{
-    Schema::create('rapat', function (Blueprint $table) {
-        $table->id('id_rapat');
-        $table->string('judul');
-        $table->dateTime('waktu_start');
-        $table->dateTime('waktu_end');
-        $table->text('desc')->nullable();
+    public function up()
+    {
+        Schema::create('rapat', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedInteger('id_room');
+            $table->unsignedInteger('id_cabang');
+            $table->string('judul', 100);
+            $table->date('tanggal');
+            $table->time('waktu_start');
+            $table->time('waktu_end');
+            $table->unsignedInteger('id_status');
+            $table->unsignedBigInteger('id_user_pengaju');
+            $table->string('desc', 100)->nullable();
+            $table->timestamps('created_at');
+            $table->timestamps('updated_at');
 
-        // Foreign keys
-        $table->foreignId('id_room')->constrained('room', 'id_room')->onDelete('cascade');
-        $table->foreignId('id_cabang')->constrained('cabang', 'id_cabang')->onDelete('cascade');
-        $table->foreignId('id_status')->constrained('status_rapat', 'id_status')->onDelete('cascade');
-        $table->foreignId('id_user_pengaju')->constrained('users', 'id')->onDelete('cascade');
+            // Foreign Keys
+            $table->foreign('id_room')->references('id')->on('rooms')->onDelete('cascade');
+            $table->foreign('id_cabang')->references('id')->on('cabangs')->onDelete('cascade');
+            $table->foreign('id_status')->references('id')->on('status_rapats')->onDelete('cascade');
+            $table->foreign('id_user_pengaju')->references('id')->on('users')->onDelete('cascade');
+        });
+    }
 
-        $table->timestamps();
-    });
-}
-
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
+    public function down()
     {
         Schema::dropIfExists('rapats');
     }
-};
+}

@@ -1,18 +1,17 @@
 <?php
 
 namespace App\Models;
-use Laravel\Sanctum\HasApiTokens;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-
+use App\Models\Division;
+use App\Models\Role;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasApiTokens,HasFactory,Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -20,7 +19,15 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'username', 'name', 'phone', 'gender', 'division', 'photo', 'password','email'
+        'id_role', 
+        'id_division', 
+        'username', 
+        'name', 
+        'email', 
+        'phone', 
+        'gender', 
+        'password', 
+        'photo'
     ];
 
     /**
@@ -43,10 +50,16 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            // PERBAIKAN: Cast id_role dan id_division sebagai integer
+            'id_role' => 'integer',
+            'id_division' => 'integer',
         ];
     }
 
-     public function division()
+    /**
+     * Mendefinisikan relasi "belongsTo" ke model Division.
+     */
+    public function division()
     {
         return $this->belongsTo(Division::class, 'id_division', 'id_division');
     }
@@ -61,9 +74,22 @@ class User extends Authenticatable
 
     /**
      * Mendefinisikan relasi "hasMany" ke model Rapat (sebagai pengaju).
+     * CATATAN: Sesuaikan dengan model Rapat yang sebenarnya
      */
     public function rapatDiajukan()
     {
-        return $this->hasMany(Rapat::class, 'id_user_pengaju', 'id');
+        return $this->hasMany(\App\Models\Rapat::class, 'id_user_pengaju', 'id');
+    }
+
+    // PERBAIKAN: Accessor untuk mendapatkan nama role dengan mudah
+    public function getRoleNameAttribute()
+    {
+        return $this->role ? $this->role->role : null;
+    }
+
+    // PERBAIKAN: Accessor untuk mendapatkan nama division dengan mudah
+    public function getDivisionNameAttribute()
+    {
+        return $this->division ? $this->division->division_name : null;
     }
 }
