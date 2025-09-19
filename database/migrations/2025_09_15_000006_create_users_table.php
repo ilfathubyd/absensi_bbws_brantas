@@ -1,6 +1,5 @@
 <?php
 
-
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -10,7 +9,7 @@ class CreateUsersTable extends Migration
     public function up()
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->bigIncrements('id'); // bigInteger() for user ID
+            $table->id('id_user');
             $table->unsignedInteger('id_role');
             $table->unsignedInteger('id_division');
             $table->string('username', 255)->unique();
@@ -23,9 +22,10 @@ class CreateUsersTable extends Migration
             $table->timestamps();
 
             // Foreign Keys
-            $table->foreign('id_role')->references('id')->on('roles')->onDelete('cascade');
-            $table->foreign('id_division')->references('id')->on('divisions')->onDelete('cascade');
+            $table->foreign('id_role')->references('id_role')->on('role')->onDelete('cascade');
+            $table->foreign('id_division')->references('id_division')->on('division')->onDelete('cascade');
         });
+
     }
 
     public function down()

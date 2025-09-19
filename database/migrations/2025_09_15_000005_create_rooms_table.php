@@ -8,14 +8,13 @@ class CreateRoomsTable extends Migration
 {
     public function up()
     {
-        Schema::create('rooms', function (Blueprint $table) {
+        Schema::create('room', function (Blueprint $table) {
             $table->id();
             $table->string('room', 100);
-            $table->unsignedInteger('id_cabang');
-            $table->timestamps();
+            $table->unsignedBigInteger('id_cabang');
 
             // Foreign Key
-            $table->foreign('id_cabang')->references('id')->on('cabangs')->onDelete('cascade');
+            $table->foreign('id_cabang')->references('id')->on('cabang')->onDelete('cascade');
         });
     }
 
