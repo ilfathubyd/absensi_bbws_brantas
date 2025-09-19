@@ -11,7 +11,7 @@ class RapatController extends Controller
     // GET: /api/rapat
     public function index()
     {
-        $rapat = Rapat::with(['room', 'status', 'pemegang', 'peserta'])->get();
+        $rapat = Rapat::with(['room', 'status', 'pengaju', 'peserta'])->get();
         return response()->json($rapat);
     }
 
@@ -39,7 +39,7 @@ class RapatController extends Controller
     // GET: /api/rapat/{id}
     public function show($id)
     {
-        $rapat = Rapat::with(['room', 'status', 'pemegang', 'peserta'])->findOrFail($id);
+        $rapat = Rapat::with(['room', 'status', 'pengaju', 'peserta'])->findOrFail($id);
         return response()->json($rapat);
     }
 

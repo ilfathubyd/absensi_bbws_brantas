@@ -9,7 +9,7 @@ class PesertaRapat extends Model
 {
     use HasFactory;
 
-    protected $table = 'bbws_absensi_peserta_rapat';
+    protected $table = 'peserta_rapat';
 
     protected $fillable = [
         'id_rapat',

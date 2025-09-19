@@ -2,32 +2,32 @@
 
 namespace App\Models;
 
-use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use App\Models\Division;
-use App\Models\Role;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
+     protected $primaryKey = 'id_user';
 
     /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
+     * 
      */
     protected $fillable = [
-        'id_role', 
-        'id_division', 
-        'username', 
-        'name', 
-        'email', 
-        'phone', 
-        'gender', 
-        'password', 
-        'photo'
+        'id_role',
+        'id_division',
+        'username',
+        'name',
+        'email',
+        'phone',
+        'gender',
+        'password',
+        'photo',
     ];
 
     /**
@@ -91,5 +91,10 @@ class User extends Authenticatable
     public function getDivisionNameAttribute()
     {
         return $this->division ? $this->division->division_name : null;
+    }
+
+    public function rapatDiikuti()
+    {
+        return $this->belongsToMany(\App\Models\Rapat::class, 'bbws_absensi_peserta_rapat', 'id_user', 'id_rapat');
     }
 }

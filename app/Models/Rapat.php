@@ -4,12 +4,18 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\User;
+use App\Models\Room;
+use App\Models\StatusRapat;
+use App\Models\PesertaRapat;
+
 
 class Rapat extends Model
 {
     use HasFactory;
 
     protected $table = 'rapat';
+
     protected $primaryKey = 'id_rapat';
 
     protected $fillable = [
@@ -21,10 +27,10 @@ class Rapat extends Model
         'waktu_start',
         'waktu_end',
         'id_user_pengaju',
-        'desc'
+        'desc',
     ];
 
- // Relasi ke tabel room
+    // Relasi ke tabel room
     public function room()
     {
         return $this->belongsTo(Room::class, 'id_room', 'id_room');
@@ -35,6 +41,8 @@ class Rapat extends Model
     {
         return $this->belongsTo(StatusRapat::class, 'id_status', 'id_status');
     }
+
+    // app/Models/Rapat.php
     public function pengaju()
     {
         return $this->belongsTo(User::class, 'id_user_pengaju', 'id');
