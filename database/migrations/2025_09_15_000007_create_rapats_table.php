@@ -13,9 +13,10 @@ class CreateRapatsTable extends Migration
             $table->unsignedBigInteger('id_room');
             $table->unsignedBigInteger('id_cabang');
             $table->string('judul', 100);
-            $table->dateTime('waktu_start');
-            $table->dateTime('waktu_end');
-            $table->unsignedBigInteger('id_status'); // Perbaikan tipe data
+            $table->date('tanggal');
+            $table->time('waktu_start');
+            $table->time('waktu_end');
+            $table->unsignedBigInteger('id_status')->default(3); // Perbaikan tipe data
             $table->unsignedBigInteger('id_user_pengaju');
             $table->string('desc', 100)->nullable();
             $table->timestamps();

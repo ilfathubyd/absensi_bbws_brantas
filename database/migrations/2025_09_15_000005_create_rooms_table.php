@@ -9,7 +9,7 @@ class CreateRoomsTable extends Migration
     public function up()
     {
         Schema::create('room', function (Blueprint $table) {
-            $table->id();
+            $table->id("id_room");
             $table->string('room', 100);
             $table->unsignedBigInteger('id_cabang');
 

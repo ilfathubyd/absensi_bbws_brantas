@@ -3,26 +3,35 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use App\Models\User;
 
 class AuthController extends Controller
 {
+    use AuthorizesRequests;
+
     public function register(Request $request)
     {
+        // 🔒 LANGKAH KEAMANAN: Periksa apakah pengguna yang login adalah admin
+        // Jika bukan admin, kode akan berhenti di sini dan otomatis
+        // mengembalikan response 403 Forbidden.
+        $this->authorize('create-user');
+
+        // Kode validasi Anda tetap sama
         $v = Validator::make($request->all(), [
             'username' => 'required|string|unique:users,username',
             'password' => 'required|string|min:1',
-            'name'     => 'required|string',
-            'email'     => 'string',
-            'phone'    => 'nullable|string',
-            'id_role'    => 'nullable|integer',
-            'gender'   => 'nullable|in:Male,Female',
+            'name' => 'required|string',
+            'email' => 'nullable|email|unique:users,email',
+            'phone' => 'nullable|string',
+            'id_role' => 'nullable|integer',
+            'gender' => 'nullable|in:Male,Female',
             'id_division' => 'nullable|integer',
-            'photo'    => 'nullable|image|max:2048',
+            'photo' => 'nullable|image|max:2048',
         ]);
 
         if ($v->fails()) {
@@ -38,13 +47,17 @@ class AuthController extends Controller
 
         $data['password'] = Hash::make($data['password']);
 
+        // Pengguna baru berhasil dibuat oleh admin
         $user = User::create($data);
 
-        $token = $user->createToken('api_token')->plainTextToken;
+        // Anda mungkin tidak perlu membuat token untuk user yang baru dibuat
+        // karena user ini tidak langsung login. Sesuaikan sesuai kebutuhan.
+        // $token = $user->createToken('api_token')->plainTextToken;
 
+        // Cukup kembalikan data user yang baru dibuat
         return response()->json([
-            'user'  => $user,
-            'token' => $token
+            'message' => 'User created successfully by admin.',
+            'user' => $user,
         ], 201);
     }
 
@@ -61,10 +74,10 @@ class AuthController extends Controller
 
         $user = User::where('username', $request->username)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
-        
+
         // PERBAIKAN: Muat relasi dengan eager loading
         $user->load(['role', 'division']);
 
@@ -73,7 +86,7 @@ class AuthController extends Controller
         // PERBAIKAN: Response yang lebih aman dan konsisten
         return response()->json([
             'token' => $token,
-            'user'  => [
+            'user' => [
                 'id_user' => $user->id_user,
                 'name' => $user->name,
                 'username' => $user->username,
@@ -88,13 +101,14 @@ class AuthController extends Controller
                 'division' => $user->division ? $user->division->division_name : null,
                 'created_at' => $user->created_at,
                 'updated_at' => $user->updated_at,
-            ]
+            ],
         ]);
     }
 
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
+
         return response()->json(['message' => 'Logged out']);
     }
 
@@ -102,9 +116,9 @@ class AuthController extends Controller
     {
         // Load relasi untuk response profile yang lengkap
         $user = $request->user()->load(['role', 'division']);
-        
+
         return response()->json([
-            'id' => $user->id_user,
+            'id_user' => $user->id_user,
             'name' => $user->name,
             'username' => $user->username,
             'email' => $user->email,

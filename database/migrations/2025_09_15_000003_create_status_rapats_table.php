@@ -9,7 +9,7 @@ class CreateStatusRapatsTable extends Migration
     public function up()
     {
         Schema::create('status_rapat', function (Blueprint $table) {
-            $table->id();
+            $table->id("id_status");
             $table->string('status_rapat', 100);
             $table->string('desc', 100)->nullable();
         });

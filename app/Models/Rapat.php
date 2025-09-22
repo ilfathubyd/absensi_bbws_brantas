@@ -45,7 +45,7 @@ class Rapat extends Model
     // app/Models/Rapat.php
     public function pengaju()
     {
-        return $this->belongsTo(User::class, 'id_user_pengaju', 'id');
+        return $this->belongsTo(User::class, 'id_user_pengaju', 'id_user');
     }
 
     // Relasi dengan peserta rapat
