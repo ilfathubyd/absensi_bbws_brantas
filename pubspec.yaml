@@ -1,0 +1,38 @@
+name: absen_app
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'  # PERBAIKAN: Range yang lebih stabil
+
+dependencies:
+  flutter:
+    sdk: flutter
+    
+  cupertino_icons: ^1.0.8
+  qr_flutter: ^4.1.0
+  intl: ^0.18.1  # PERBAIKAN: Versi yang lebih stabil
+  shared_preferences: ^2.2.2
+  signature: ^5.4.1  # PERBAIKAN: Versi yang lebih stabil
+  iconsax: ^0.0.8
+  csv: ^5.1.1
+  path_provider: ^2.1.1
+  http: ^1.1.0  # PERBAIKAN: Versi yang lebih stabil
+  image_picker: ^1.0.4  # PERBAIKAN: Versi yang lebih stabil
+  geolocator: ^10.1.0  # PERBAIKAN: Versi yang lebih stabil
+  camera: ^0.10.5+5
+  permission_handler: ^11.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0  # PERBAIKAN: Versi yang lebih stabil
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/logo1.png
+    - assets/images/Hello World.png
