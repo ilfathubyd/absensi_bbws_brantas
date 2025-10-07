@@ -13,7 +13,7 @@ dependencies:
     
   cupertino_icons: ^1.0.8
   qr_flutter: ^4.1.0
-  intl: ^0.18.1  # PERBAIKAN: Versi yang lebih stabil
+  intl: ^0.20.2  # PERBAIKAN: Versi yang lebih stabil
   shared_preferences: ^2.2.2
   signature: ^5.4.1  # PERBAIKAN: Versi yang lebih stabil
   iconsax: ^0.0.8

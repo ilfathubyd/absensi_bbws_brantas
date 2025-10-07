@@ -7,7 +7,7 @@ import 'package:absen_app/Models/models/user.dart';
 
 class AuthService {
 // PERBAIKAN: Ganti dengan URL yang benar
-static const String _baseUrl = "http://192.168.51.130:8000/api"; // atau http://localhost:8000/api
+static const String _baseUrl = "http://192.168.50.60:8000/api"; // atau http://localhost:8000/api
 
 Future<AppUser> login(String username, String password) async {
 final url = Uri.parse('$_baseUrl/login');
@@ -132,4 +132,6 @@ throw Exception('Session expired. Please login again.');
 throw Exception('Failed to get profile');
 }
 }
+
+
 }

@@ -1,99 +1,148 @@
-import 'package:absen_app/Models/models/meeting.dart';
-import 'package:absen_app/Models/services/meeting_repo.dart' show MeetingRepo;
+import 'package:absen_app/Models/models/user.dart';
+import 'package:absen_app/Models/services/rapat_api_service.dart';
+import 'package:absen_app/screens/admin/admin_dashboard.dart';
+import 'package:absen_app/screens/pic/pic_dashboard.dart' show PICDashboard;
+import 'package:absen_app/services/auth_service.dart';
 import 'package:flutter/material.dart';
-import 'meeting_qr.dart';
 
-class CreateMeeting extends StatefulWidget {
-  const CreateMeeting({super.key});
+class CreateRapat extends StatefulWidget {
+  const CreateRapat({super.key});
 
   @override
-  State<CreateMeeting> createState() => _CreateMeetingState();
+  State<CreateRapat> createState() => _CreateRapatState();
 }
 
-class _CreateMeetingState extends State<CreateMeeting> {
+class _CreateRapatState extends State<CreateRapat> {
   final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
+  final _descriptionCtrl = TextEditingController();
+
   DateTime? _selectedDate;
   TimeOfDay? _selectedStartTime;
   TimeOfDay? _selectedEndTime;
-  String? _selectedRoom;
-  String? _selectedResponsible;
+
+  // Variabel State untuk Dropdown
+  int? _selectedCabangId;
+  int? _selectedRoomId;
+  List<Map<String, dynamic>> _cabangs = [];
+  List<Map<String, dynamic>> _rooms = []; // Akan berisi ruangan untuk cabang yang dipilih
+
+  // Variabel State untuk Kontrol UI
+  bool _loadingCabang = true; // Hanya untuk memuat data master awal (cabang)
+  bool _loadingRooms = false; // Untuk memuat ruangan setelah cabang dipilih
+  bool _submitting = false;
   bool _isIndefinite = false;
+  AppUser? _currentUser;
 
-  // List ruangan yang tersedia
-  final List<String> _availableRooms = [
-    'Ruang Pertemuan Bendungan Bagong (Bid. OP)',
-    'Ruang Pertemuan Bendungan Sutami',
-    'Ruang Pertemuan Bendungan Tugu',
-    'Ruang Pertemuan Gunung Semeru (PJSA Bawah)',
-    'Ruang Rapat Bendungan Nipah',
-    'Ruang Rapat Bidang KPI SDA',
-    'Ruang Rapat KPISDA',
-    'Ruang Rapat PPK Program',
-    'Ruang Rapat Satker PJPA (PJSA Atas)',
-    'Ruang Rapat Semantok (PJSA Atas / Bendungan)',
-  ];
-
-  // List penanggung jawab yang tersedia
-  final List<String> _availableResponsible = [
-    'Bagian Tata Usaha',
-    'Bidang KPI',
-    'Bidang OP',
-    'Bidang PJPA',
-    'Bidang PJSA',
-    'PPK ATAB 1',
-    'PPK ATAB 2',
-    'PPK ATAB 3',
-    'PPK BMN',
-    'PPK Bendungan 1',
-    'PPK Bendungan 2',
-    'PPK Bendungan 3',
-    'PPK IRWA 1',
-    'PPK IRWA 2',
-    'PPK OP 1',
-    'PPK OP 2',
-    'PPK OP 3',
-    'PPK OP 4',
-    'PPK OP 5',
-    'PPK PSDA',
-    'PPK Perencanaan Bendungan',
-    'PPK Perencanaan Program',
-    'PPK SP 1',
-    'PPK SP 2',
-    'PPK SP 3',
-    'PPK SP 4',
-    'PPK Tanah Balai',
-    'PPK Tanah Bendungan',
-    'PPK Tata Laksana',
-    'Satker ATAB',
-    'Satker Balai',
-    'Satker Bendungan',
-    'Satker OP',
-    'Satker PJPA',
-    'Satker PJSA',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
+  }
 
   @override
   void dispose() {
     _titleCtrl.dispose();
+    _descriptionCtrl.dispose();
     super.dispose();
   }
+
+  // Menggabungkan pemuat data awal
+  Future<void> _loadInitialData() async {
+    setState(() {
+      _loadingCabang = true;
+    });
+    try {
+      // Muat data user dan cabang secara bersamaan
+      await Future.wait([
+        _loadCurrentUser(),
+        _loadCabang(),
+      ]);
+    } catch (e) {
+      _showErrorSnackbar(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingCabang = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final authService = AuthService();
+      final user = await authService.getProfile();
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+        });
+      }
+    } catch (e) {
+      // Menangani error secara spesifik jika diperlukan
+      print("Gagal memuat data user: $e");
+      rethrow; // Lemparkan lagi agar ditangkap oleh _loadInitialData
+    }
+  }
+
+  Future<void> _loadCabang() async {
+    try {
+      final svc = RapatApiService();
+      final cabangs = await svc.fetchCabang();
+      if (mounted) {
+        setState(() {
+          _cabangs = cabangs;
+        });
+      }
+    } catch (e) {
+      print("Gagal memuat data cabang: $e");
+      rethrow; // Lemparkan lagi agar ditangkap oleh _loadInitialData
+    }
+  }
+
+  // Fungsi baru untuk memuat ruangan berdasarkan cabang yang dipilih
+  Future<void> _loadRoomsForCabang(int cabangId) async {
+    setState(() {
+      _loadingRooms = true;
+      _rooms = []; // Kosongkan list ruangan sebelumnya
+      _selectedRoomId = null; // Reset pilihan ruangan
+    });
+
+    try {
+      final svc = RapatApiService();
+      final rooms = await svc.fetchRoomsByCabang(cabangId);
+      if (mounted) {
+        setState(() {
+          _rooms = rooms;
+        });
+      }
+    } catch (e) {
+      _showErrorSnackbar(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingRooms = false;
+        });
+      }
+    }
+  }
+
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final date = await showDatePicker(
       context: context,
-      firstDate: now.subtract(const Duration(days: 365)),
-      lastDate: now.add(const Duration(days: 365 * 2)),
-      initialDate: now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      initialDate: _selectedDate ?? now,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF1565C0),
+              primary: Color(0xFF4CAF50),
               onPrimary: Colors.white,
               surface: Colors.white,
-              onSurface: Color(0xFF1565C0),
+              onSurface: Color(0xFF4CAF50),
             ),
           ),
           child: child!,
@@ -110,15 +159,15 @@ class _CreateMeetingState extends State<CreateMeeting> {
   Future<void> _pickStartTime() async {
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: _selectedStartTime ?? TimeOfDay.now(),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF1565C0),
+              primary: Color(0xFF4CAF50),
               onPrimary: Colors.white,
               surface: Colors.white,
-              onSurface: Color(0xFF1565C0),
+              onSurface: Color(0xFF4CAF50),
             ),
           ),
           child: child!,
@@ -129,7 +178,8 @@ class _CreateMeetingState extends State<CreateMeeting> {
 
     setState(() {
       _selectedStartTime = time;
-      if (_selectedEndTime == null || _isTimeAfter(time, _selectedEndTime!)) {
+      // Jika jam selesai lebih awal dari jam mulai baru, reset jam selesai
+      if (_selectedEndTime != null && !_isTimeAfter(time, _selectedEndTime!)) {
         _selectedEndTime = null;
       }
     });
@@ -137,28 +187,24 @@ class _CreateMeetingState extends State<CreateMeeting> {
 
   Future<void> _pickEndTime() async {
     if (_selectedStartTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Pilih jam mulai terlebih dahulu'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showErrorSnackbar('Pilih jam mulai terlebih dahulu');
       return;
     }
 
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(
-        DateTime.now().add(const Duration(hours: 1)),
+      initialTime: _selectedEndTime ?? TimeOfDay.fromDateTime(
+        DateTime(0, 0, 0, _selectedStartTime!.hour, _selectedStartTime!.minute)
+            .add(const Duration(hours: 1)),
       ),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF1565C0),
+              primary: Color(0xFF4CAF50),
               onPrimary: Colors.white,
               surface: Colors.white,
-              onSurface: Color(0xFF1565C0),
+              onSurface: Color(0xFF4CAF50),
             ),
           ),
           child: child!,
@@ -168,12 +214,7 @@ class _CreateMeetingState extends State<CreateMeeting> {
     if (time == null) return;
 
     if (!_isTimeAfter(time, _selectedStartTime!)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Jam selesai harus setelah jam mulai'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showErrorSnackbar('Jam selesai harus setelah jam mulai');
       return;
     }
 
@@ -189,7 +230,9 @@ class _CreateMeetingState extends State<CreateMeeting> {
     return datetime1.isAfter(datetime2);
   }
 
-  void _save() {
+  String _two(int v) => v.toString().padLeft(2, '0');
+
+  Future<void> _ajukan() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_selectedDate == null) {
       _showErrorSnackbar('Pilih tanggal rapat');
@@ -203,567 +246,395 @@ class _CreateMeetingState extends State<CreateMeeting> {
       _showErrorSnackbar('Pilih jam selesai rapat');
       return;
     }
-    if (_selectedRoom == null) {
+    if (_selectedCabangId == null) {
+      _showErrorSnackbar('Pilih cabang');
+      return;
+    }
+    if (_selectedRoomId == null) {
       _showErrorSnackbar('Pilih ruangan rapat');
       return;
     }
-    if (_selectedResponsible == null) {
-      _showErrorSnackbar('Pilih penanggung jawab');
+    if (_currentUser == null) {
+      _showErrorSnackbar('Data user tidak ditemukan, coba muat ulang halaman');
       return;
     }
 
-    final startDateTime = DateTime(
-      _selectedDate!.year,
-      _selectedDate!.month,
-      _selectedDate!.day,
-      _selectedStartTime!.hour,
-      _selectedStartTime!.minute,
-    );
+    final tanggal = '${_selectedDate!.year}-${_two(_selectedDate!.month)}-${_two(_selectedDate!.day)}';
+    final start = '${_two(_selectedStartTime!.hour)}:${_two(_selectedStartTime!.minute)}';
+    final end = !_isIndefinite && _selectedEndTime != null
+        ? '${_two(_selectedEndTime!.hour)}:${_two(_selectedEndTime!.minute)}'
+        : null;
 
-    DateTime? endDateTime;
-    if (!_isIndefinite && _selectedEndTime != null) {
-      endDateTime = DateTime(
-        _selectedDate!.year,
-        _selectedDate!.month,
-        _selectedDate!.day,
-        _selectedEndTime!.hour,
-        _selectedEndTime!.minute,
+    setState(() {
+      _submitting = true;
+    });
+
+    try {
+      final svc = RapatApiService();
+      await svc.createRapat(
+        idCabang: _selectedCabangId!,
+        idRoom: _selectedRoomId!,
+        judul: _titleCtrl.text.trim(),
+        tanggal: tanggal,
+        waktuStart: start,
+        waktuEnd: end,
+        desc: _descriptionCtrl.text.trim().isEmpty ? null : _descriptionCtrl.text.trim(),
       );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Text('Pengajuan rapat berhasil dikirim'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AdminDashboard()),
+              (route) => false,
+        );
+      }
+    } catch (e) {
+      _showErrorSnackbar(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
+      }
     }
-
-    final meeting = MeetingRepo.add(
-      title: _titleCtrl.text.trim(),
-      startTime: startDateTime,
-      endTime: endDateTime,
-      room: _selectedRoom!,
-      responsible: _selectedResponsible!,
-      pic: 'default_pic.jpg',
-    );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            const Text('Rapat berhasil dibuat!'),
-          ],
-        ),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-    );
-
-    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   void _showErrorSnackbar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             const Icon(Icons.warning, color: Colors.white, size: 20),
             const SizedBox(width: 8),
-            Text(message),
+            Expanded(child: Text(message)),
           ],
         ),
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
 
   String _formatTime(TimeOfDay? time) {
     if (time == null) return 'Belum dipilih';
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    return time.format(context);
   }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'Belum dipilih';
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
 
   @override
   Widget build(BuildContext context) {
+    // Responsive layout variables
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text(
-          'Buat Rapat',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Ajukan Rapat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 0,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
+              colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF1565C0),
-                Color(0xFF42A5F5),
-              ],
             ),
           ),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final bool isSmallScreen = constraints.maxWidth < 600;
-          
-          return SingleChildScrollView(
-            padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: isSmallScreen ? 16 : 24,
+            vertical: 16,
+          ),
+          child: Center(
             child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight,
-              ),
-              child: IntrinsicHeight(
-                child: Column(
-                  children: [
-                    // Header Card
-                    Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFFC107), Color(0xFFFFB300)],
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Column(
+                children: [
+                  // Header Card
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(isSmallScreen ? 20 : 24),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)]),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF4CAF50).withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFFC107).withOpacity(0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(Icons.event_note, 
-                              size: isSmallScreen ? 36 : 48, 
-                              color: Colors.white),
-                          SizedBox(height: isSmallScreen ? 8 : 12),
-                          Text(
-                            'Buat Rapat Baru',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: isSmallScreen ? 18 : 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          SizedBox(height: isSmallScreen ? 4 : 8),
-                          Text(
-                            'Lengkapi informasi rapat di bawah ini',
-                            style: TextStyle(
-                              color: Colors.white, 
-                              fontSize: isSmallScreen ? 12 : 14
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                    SizedBox(height: isSmallScreen ? 16 : 24),
-
-                    // Form Card
-                    Expanded(
-                      child: Card(
-                        elevation: 8,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Informasi Rapat',
-                                  style: TextStyle(
-                                    fontSize: isSmallScreen ? 16 : 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF1565C0),
-                                  ),
-                                ),
-                                SizedBox(height: isSmallScreen ? 12 : 20),
-
-                                // Judul Rapat
-                                TextFormField(
-                                  controller: _titleCtrl,
-                                  decoration: InputDecoration(
-                                    labelText: 'Judul Rapat',
-                                    prefixIcon: const Icon(
-                                      Icons.title,
-                                      color: Color(0xFF1565C0),
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: Colors.grey[300]!),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF1565C0),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    labelStyle: const TextStyle(
-                                      color: Color(0xFF1565C0),
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.grey[50],
-                                  ),
-                                  validator: (v) => (v == null || v.trim().isEmpty)
-                                      ? 'Judul wajib diisi'
-                                      : null,
-                                ),
-                                SizedBox(height: isSmallScreen ? 12 : 20),
-
-                                // Dropdown Ruangan
-                                DropdownButtonFormField<String>(
-                                  value: _selectedRoom,
-                                  isExpanded: true, // Penting untuk responsivitas
-                                  decoration: InputDecoration(
-                                    labelText: 'Ruangan Rapat',
-                                    prefixIcon: const Icon(
-                                      Icons.meeting_room,
-                                      color: Color(0xFF1565C0),
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: Colors.grey[300]!),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF1565C0),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    labelStyle: const TextStyle(
-                                      color: Color(0xFF1565C0),
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.grey[50],
-                                  ),
-                                  items: _availableRooms.map((String room) {
-                                    return DropdownMenuItem<String>(
-                                      value: room,
-                                      child: Text(
-                                        room,
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                      ),
-                                    );
-                                  }).toList(),
-                                  onChanged: (String? newValue) {
-                                    setState(() {
-                                      _selectedRoom = newValue;
-                                    });
-                                  },
-                                  validator: (v) => v == null ? 'Pilih ruangan rapat' : null,
-                                ),
-                                SizedBox(height: isSmallScreen ? 12 : 20),
-
-                                // Dropdown Penanggung Jawab
-                                DropdownButtonFormField<String>(
-                                  value: _selectedResponsible,
-                                  isExpanded: true, // Penting untuk responsivitas
-                                  decoration: InputDecoration(
-                                    labelText: 'Penanggung Jawab',
-                                    prefixIcon: const Icon(
-                                      Icons.person,
-                                      color: Color(0xFF1565C0),
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: Colors.grey[300]!),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF1565C0),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    labelStyle: const TextStyle(
-                                      color: Color(0xFF1565C0),
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.grey[50],
-                                  ),
-                                  items: _availableResponsible.map((String person) {
-                                    return DropdownMenuItem<String>(
-                                      value: person,
-                                      child: Text(
-                                        person,
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                      ),
-                                    );
-                                  }).toList(),
-                                  onChanged: (String? newValue) {
-                                    setState(() {
-                                      _selectedResponsible = newValue;
-                                    });
-                                  },
-                                  validator: (v) => v == null ? 'Pilih penanggung jawab' : null,
-                                ),
-                                SizedBox(height: isSmallScreen ? 12 : 20),
-
-                                // Tanggal & Waktu Rapat
-                                Container(
-                                  width: double.infinity,
-                                  padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF3F8FF),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0xFF1565C0).withOpacity(0.3),
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.schedule,
-                                            color: const Color(0xFF1565C0),
-                                            size: isSmallScreen ? 16 : 20,
-                                          ),
-                                          SizedBox(width: isSmallScreen ? 4 : 8),
-                                          Text(
-                                            'Jadwal Rapat',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: const Color(0xFF1565C0),
-                                              fontSize: isSmallScreen ? 14 : 16,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: isSmallScreen ? 8 : 12),
-
-                                      // Tanggal
-                                      Row(
-                                        children: [
-                                          Icon(Icons.calendar_today, 
-                                              size: isSmallScreen ? 14 : 18, 
-                                              color: Colors.grey),
-                                          SizedBox(width: isSmallScreen ? 4 : 8),
-                                          Text('Tanggal: ', 
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: isSmallScreen ? 12 : 14
-                                              )),
-                                          Expanded(
-                                            child: Text(
-                                              _selectedDate == null 
-                                                ? 'Belum dipilih' 
-                                                : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
-                                              style: TextStyle(
-                                                color: _selectedDate == null 
-                                                  ? Colors.grey[600] 
-                                                  : const Color(0xFF1565C0),
-                                                fontSize: isSmallScreen ? 12 : 14,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          SizedBox(width: isSmallScreen ? 4 : 8),
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFFFC107),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: IconButton(
-                                              icon: Icon(Icons.calendar_today, 
-                                                        size: isSmallScreen ? 14 : 18, 
-                                                        color: Colors.white),
-                                              onPressed: _pickDate,
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: isSmallScreen ? 8 : 12),
-
-                                      // Jam Mulai
-                                      Row(
-                                        children: [
-                                          Icon(Icons.play_arrow, 
-                                              size: isSmallScreen ? 14 : 18, 
-                                              color: Colors.green),
-                                          SizedBox(width: isSmallScreen ? 4 : 8),
-                                          Text('Jam Mulai: ', 
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: isSmallScreen ? 12 : 14
-                                              )),
-                                          Expanded(
-                                            child: Text(
-                                              _formatTime(_selectedStartTime),
-                                              style: TextStyle(
-                                                color: _selectedStartTime == null 
-                                                  ? Colors.grey[600] 
-                                                  : const Color(0xFF1565C0),
-                                                fontSize: isSmallScreen ? 12 : 14,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          SizedBox(width: isSmallScreen ? 4 : 8),
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF4CAF50),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: IconButton(
-                                              icon: Icon(Icons.access_time, 
-                                                        size: isSmallScreen ? 14 : 18, 
-                                                        color: Colors.white),
-                                              onPressed: _pickStartTime,
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: isSmallScreen ? 8 : 12),
-
-                                      // Jam Selesai
-                                      if (!_isIndefinite) ...[
-                                        Row(
-                                          children: [
-                                            Icon(Icons.stop, 
-                                                size: isSmallScreen ? 14 : 18, 
-                                                color: Colors.red),
-                                            SizedBox(width: isSmallScreen ? 4 : 8),
-                                            Text('Jam Selesai: ', 
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: isSmallScreen ? 12 : 14
-                                                )),
-                                            Expanded(
-                                              child: Text(
-                                                _formatTime(_selectedEndTime),
-                                                style: TextStyle(
-                                                  color: _selectedEndTime == null 
-                                                    ? Colors.grey[600] 
-                                                    : const Color(0xFF1565C0),
-                                                  fontSize: isSmallScreen ? 12 : 14,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            SizedBox(width: isSmallScreen ? 4 : 8),
-                                            Container(
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFF44336),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: IconButton(
-                                                icon: Icon(Icons.access_time, 
-                                                          size: isSmallScreen ? 14 : 18, 
-                                                          color: Colors.white),
-                                                onPressed: _pickEndTime,
-                                                padding: EdgeInsets.zero,
-                                                constraints: const BoxConstraints(),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(height: isSmallScreen ? 8 : 12),
-                                      ],
-
-                                      // Checkbox Selesai Tidak Menentu
-                                      Row(
-                                        children: [
-                                          Checkbox(
-                                            value: _isIndefinite,
-                                            onChanged: (value) {
-                                              setState(() {
-                                                _isIndefinite = value ?? false;
-                                                if (_isIndefinite) {
-                                                  _selectedEndTime = null;
-                                                }
-                                              });
-                                            },
-                                            activeColor: const Color(0xFF1565C0),
-                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                          ),
-                                          Text(
-                                            'Selesai tidak menentu',
-                                            style: TextStyle(
-                                              fontSize: isSmallScreen ? 12 : 14
-                                            ),
-                                          ),
-                                          SizedBox(width: isSmallScreen ? 2 : 4),
-                                          Icon(Icons.help_outline, 
-                                              size: isSmallScreen ? 12 : 16, 
-                                              color: Colors.grey),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: isSmallScreen ? 16 : 24),
-
-                    // Tombol Simpan
-                    SizedBox(
-                      width: double.infinity,
-                      height: isSmallScreen ? 45 : 55,
-                      child: ElevatedButton.icon(
-                        onPressed: _save,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1565C0),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 6,
-                          shadowColor: const Color(0xFF1565C0).withOpacity(0.4),
-                        ),
-                        icon: const Icon(Icons.save),
-                        label: Text(
-                          'Simpan Rapat',
+                    child: Column(
+                      children: [
+                        Icon(Icons.event_note, size: isSmallScreen ? 48 : 56, color: Colors.white),
+                        SizedBox(height: isSmallScreen ? 12 : 16),
+                        Text(
+                          'Formulir Pengajuan Rapat',
                           style: TextStyle(
-                            fontSize: isSmallScreen ? 14 : 16,
+                            color: Colors.white,
+                            fontSize: isSmallScreen ? 20 : 22,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
                           ),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: isSmallScreen ? 4 : 8),
+                        Text(
+                          'Isi detail rapat untuk diajukan kepada Admin.',
+                          style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: isSmallScreen ? 14 : 16),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: isSmallScreen ? 24 : 32),
+
+                  // Form Card
+                  Card(
+                    elevation: 4,
+                    shadowColor: Colors.grey.withOpacity(0.2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    child: Padding(
+                      padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Informasi Pengajuan',
+                              style: TextStyle(
+                                fontSize: isSmallScreen ? 18 : 20,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF4CAF50),
+                              ),
+                            ),
+                            SizedBox(height: isSmallScreen ? 16 : 20),
+
+                            // Cabang
+                            DropdownButtonFormField<int>(
+                              value: _selectedCabangId,
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                labelText: _loadingCabang ? 'Memuat Cabang...' : 'Pilih Cabang',
+                                prefixIcon: const Icon(Icons.business, color: Color(0xFF4CAF50)),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              items: _cabangs.map((e) {
+                                final id = (e['id'] ?? e['id_cabang']) as int;
+                                final name = (e['nama'] ?? e['name'] ?? e['cabang'] ?? 'Cabang $id').toString();
+                                return DropdownMenuItem<int>(value: id, child: Text(name, overflow: TextOverflow.ellipsis));
+                              }).toList(),
+                              onChanged: _loadingCabang ? null : (int? newValue) {
+                                if (newValue != null) {
+                                  setState(() {
+                                    _selectedCabangId = newValue;
+                                  });
+                                  _loadRoomsForCabang(newValue);
+                                }
+                              },
+                              validator: (v) => v == null ? 'Pilih cabang' : null,
+                            ),
+                            SizedBox(height: isSmallScreen ? 16 : 20),
+
+                            // Ruangan
+                            DropdownButtonFormField<int>(
+                              value: _selectedRoomId,
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                labelText: _loadingRooms
+                                    ? 'Memuat Ruangan...'
+                                    : (_selectedCabangId == null
+                                    ? 'Pilih Cabang Terlebih Dahulu'
+                                    : (_rooms.isEmpty ? 'Tidak ada ruangan tersedia' : 'Pilih Ruangan')),
+                                prefixIcon: Icon(
+                                  Icons.meeting_room,
+                                  color: _selectedCabangId == null ? Colors.grey : const Color(0xFF4CAF50),
+                                ),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                fillColor: _selectedCabangId == null ? Colors.grey[200] : null,
+                                filled: _selectedCabangId == null,
+                              ),
+                              items: _rooms.map((e) {
+                                final id = e['id_room'] as int;
+                                final name = e['room']?.toString() ?? 'Ruangan Tanpa Nama';
+                                return DropdownMenuItem<int>(value: id, child: Text(name, overflow: TextOverflow.ellipsis));
+                              }).toList(),
+                              onChanged: _loadingRooms || _selectedCabangId == null || _rooms.isEmpty
+                                  ? null // Menonaktifkan dropdown
+                                  : (int? newValue) {
+                                setState(() {
+                                  _selectedRoomId = newValue;
+                                });
+                              },
+                              validator: (v) {
+                                if (_selectedCabangId != null && _rooms.isNotEmpty && v == null) {
+                                  return 'Pilih ruangan rapat';
+                                }
+                                return null;
+                              },
+                            ),
+                            SizedBox(height: isSmallScreen ? 16 : 20),
+
+                            // Judul Rapat
+                            TextFormField(
+                              controller: _titleCtrl,
+                              decoration: InputDecoration(
+                                labelText: 'Judul Rapat',
+                                prefixIcon: const Icon(Icons.title, color: Color(0xFF4CAF50)),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Judul wajib diisi' : null,
+                            ),
+                            SizedBox(height: isSmallScreen ? 16 : 20),
+
+                            // Deskripsi Rapat
+                            TextFormField(
+                              controller: _descriptionCtrl,
+                              maxLines: 3,
+                              decoration: InputDecoration(
+                                labelText: 'Deskripsi Rapat (Opsional)',
+                                alignLabelWithHint: true,
+                                prefixIcon: const Icon(Icons.description, color: Color(0xFF4CAF50)),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                            SizedBox(height: isSmallScreen ? 16 : 20),
+
+                            // Penanggung Jawab
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8F5E9),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFF4CAF50).withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.person, color: Color(0xFF4CAF50)),
+                                  const SizedBox(width: 12),
+                                  const Text('Penanggung Jawab: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  Expanded(
+                                    child: Text(
+                                      _currentUser?.name ?? 'Memuat...',
+                                      style: const TextStyle(fontWeight: FontWeight.normal),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: isSmallScreen ? 16 : 20),
+
+                            // Jadwal Rapat
+                            Container(
+                              padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey[300]!),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Jadwal Rapat', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF4CAF50))),
+                                  const Divider(),
+                                  ListTile(
+                                    leading: const Icon(Icons.calendar_today, color: Color(0xFF4CAF50)),
+                                    title: const Text('Tanggal'),
+                                    subtitle: Text(_formatDate(_selectedDate)),
+                                    onTap: _pickDate,
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.access_time_filled, color: Colors.green),
+                                    title: const Text('Jam Mulai'),
+                                    subtitle: Text(_formatTime(_selectedStartTime)),
+                                    onTap: _pickStartTime,
+                                  ),
+                                  if (!_isIndefinite)
+                                    ListTile(
+                                      leading: const Icon(Icons.access_time, color: Colors.red),
+                                      title: const Text('Jam Selesai'),
+                                      subtitle: Text(_formatTime(_selectedEndTime)),
+                                      onTap: _pickEndTime,
+                                    ),
+                                  SwitchListTile(
+                                    title: const Text('Selesai tidak menentu'),
+                                    value: _isIndefinite,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _isIndefinite = value;
+                                        if (value) _selectedEndTime = null;
+                                      });
+                                    },
+                                    activeColor: const Color(0xFF4CAF50),
+                                    secondary: const Icon(Icons.help_outline, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    SizedBox(height: isSmallScreen ? 16 : 20),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: isSmallScreen ? 24 : 32),
+
+                  // Tombol Ajukan
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      onPressed: _submitting ? null : _ajukan,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4CAF50),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      icon: _submitting
+                          ? Container(
+                        width: 24,
+                        height: 24,
+                        padding: const EdgeInsets.all(2.0),
+                        child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                      )
+                          : const Icon(Icons.send),
+                      label: Text(_submitting ? 'Mengirim...' : 'Ajukan ke Admin'),
+                    ),
+                  ),
+                  SizedBox(height: isSmallScreen ? 20 : 24),
+                ],
               ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }

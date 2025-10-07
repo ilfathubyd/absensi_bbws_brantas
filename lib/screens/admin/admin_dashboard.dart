@@ -1,13 +1,14 @@
-import 'package:absen_app/Models/models/meeting.dart';
-import 'package:absen_app/Models/models/meeting_request.dart';
-import 'package:absen_app/Models/services/meeting_repo.dart' show MeetingRepo;
-import 'package:absen_app/Models/services/meeting_request_repo.dart';
+// ignore_for_file: use_build_context_synchronously
+
+import 'package:absen_app/Models/models/rapat.dart';
+import 'package:absen_app/Models/services/rapat_api_service.dart';
 import 'package:absen_app/screens/login_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../services/auth_service.dart';
-import 'create_meeting.dart';
-import 'edit_meeting.dart';
-import 'meeting_qr.dart';
+import 'package:absen_app/screens/admin/create_meeting.dart';
+import 'package:absen_app/screens/admin/edit_meeting.dart';
+// import 'package:absen_app/screens/admin/meeting_qr.dart';
 import 'package:absen_app/Models/models/user.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -18,1115 +19,627 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  bool showHistory = false;
-  int _selectedTab = 0;
+  // --- State untuk UI ---
+  int _currentPageIndex = 0; // Untuk BottomNavigationBar
+  int _selectedTab = 0; // Untuk Tab di halaman Dashboard (Daftar Rapat / Pengajuan)
+
+  // PERUBAHAN: Mengganti bool showHistory dengan int untuk 3 state
+  int _activeMeetingFilterIndex = 0; // 0: Diterima, 1: Menunggu, 2: History
+
+  // --- State untuk Data ---
   bool _isLoading = true;
   String? _errorMessage;
   AppUser? _currentUser;
+  List<Rapat> _allRapat = [];
+  List<Map<String, dynamic>> _allCabang = [];
+  int? _selectedCabangId;
+
+  // --- Services ---
+  final RapatApiService _rapatApiService = RapatApiService();
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
     super.initState();
-    print('AdminDashboard initialized');
     _loadData();
   }
 
   Future<void> _loadData() async {
     try {
+      if (!mounted) return;
       setState(() {
         _isLoading = true;
         _errorMessage = null;
       });
-      MeetingRequestRepo.debugPrintRequests();
 
-      _currentUser = await AuthService().getProfile();
-      await Future.delayed(const Duration(milliseconds: 100));
-      
-      setState(() {
-        _isLoading = false;
-      });
+      final results = await Future.wait([
+        _authService.getProfile(),
+        _rapatApiService.fetchCabang(),
+        _rapatApiService.fetchAllRapat(),
+      ]);
+
+      _currentUser = results[0] as AppUser?;
+      if (_currentUser == null) {
+        throw Exception('Sesi Anda telah berakhir. Silakan login kembali.');
+      }
+
+      _allCabang = results[1] as List<Map<String, dynamic>>;
+      _allRapat = results[2] as List<Rapat>;
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = "Gagal memuat data: ${e.toString()}";
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.toString();
+        });
+      }
+      if (e.toString().contains('Sesi')) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
+          }
+        });
+      }
     }
   }
 
-  void _exportMeetingData(Meeting meeting) {
+  void _exportMeetingData(Rapat rapat) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Export data rapat '${meeting.title}' belum diimplementasi"),
-        duration: const Duration(seconds: 2),
-      ),
+      SnackBar(content: Text("Export data rapat '${rapat.judul}' belum diimplementasi")),
     );
   }
 
-  // Method untuk refresh data
-  void _refreshData() {
-    setState(() {
-      _loadData();
-    });
+  Future<void> _refreshData() async {
+    await _loadData();
   }
 
+  // file: lib/screens/admin/admin_dashboard.dart
+
+// GANTI SELURUH METHOD BUILD ANDA DENGAN INI
   @override
   Widget build(BuildContext context) {
-    try {
-      final approvedMeetings = MeetingRepo.all();
-      final meetingRequests = MeetingRequestRepo.pending();
-      
-      final upcomingMeetings = approvedMeetings.where((m) => 
-        m.startTime.isAfter(DateTime.now())
-      ).toList();
-      
-      final historyMeetings = approvedMeetings.where((m) => 
-        m.startTime.isBefore(DateTime.now())
-      ).toList();
+    final meetingRequests = _allRapat.where((r) => r.statusRapat == 'Menunggu').toList();
 
-      final meetings = showHistory ? historyMeetings : upcomingMeetings;
+    // Daftar judul untuk AppBar sesuai dengan halaman
+    const List<String> _appBarTitles = ['Admin Dashboard', 'Admin Panel', 'Profil Admin'];
 
-      return Scaffold(
-        backgroundColor: const Color(0xFFF5F7FA),
-        appBar: AppBar(
-          title: const Text(
-            'Admin Dashboard',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: AppBar(
+        // Menggunakan judul dari list berdasarkan index halaman
+        title: Text(_appBarTitles[_currentPageIndex], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF1565C0), Color(0xFF42A5F5)]),
           ),
-          centerTitle: true,
-          elevation: 0,
-          flexibleSpace: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1565C0),
-                  Color(0xFF42A5F5),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            // Tombol refresh
-            IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.white),
-              onPressed: _refreshData,
-            ),
-            if (meetingRequests.isNotEmpty)
-              Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications, color: Colors.white),
-                    onPressed: () {
-                      setState(() {
-                        _selectedTab = 1;
-                      });
-                    },
+        ),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: _refreshData),
+          if (meetingRequests.isNotEmpty)
+            Stack(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications, color: Colors.white),
+                  onPressed: () => setState(() {
+                    _currentPageIndex = 0;
+                    _selectedTab = 1;
+                  }),
+                ),
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)),
+                    constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                    child: Text(meetingRequests.length.toString(), style: const TextStyle(color: Colors.white, fontSize: 8), textAlign: TextAlign.center),
                   ),
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 14,
-                        minHeight: 14,
-                      ),
-                      child: Text(
-                        meetingRequests.length.toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
+            ),
+          // PERBAIKAN: Sembunyikan popup menu hanya di halaman profil
+          if (_currentPageIndex != 2)
             Container(
               margin: const EdgeInsets.only(right: 8),
               child: PopupMenuButton<String>(
-                // Ganti Icons.person dengan CircleAvatar
                 icon: _currentUser?.photo != null
-                    ? CircleAvatar(
-                  backgroundImage: NetworkImage(_currentUser!.photo!),
-                  radius: 18,
-                )
-                    : const CircleAvatar(
-                  child: Icon(Icons.person),
-                  radius: 18,
-                ),
+                    ? CircleAvatar(backgroundImage: NetworkImage(_currentUser!.photo!), radius: 18)
+                    : const CircleAvatar(child: Icon(Icons.person), radius: 18),
                 onSelected: (value) async {
                   if (value == 'logout') {
-                    await AuthService().logout();
-                    if (!mounted) return;
+                    await _authService.logout();
+                    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    enabled: false,
+                    child: Row(children: [
+                      const Icon(Icons.person, color: Colors.grey),
+                      const SizedBox(width: 8),
+                      Text('Halo, ${_currentUser?.name ?? 'Admin'}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                    ]),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(
+                    value: 'logout',
+                    child: Row(children: [Icon(Icons.logout, color: Colors.red), SizedBox(width: 8), Text('Logout')]),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        onDestinationSelected: (int index) {
+          setState(() {
+            _currentPageIndex = index;
+          });
+        },
+        indicatorColor: const Color(0xFFFFD600),
+        selectedIndex: _currentPageIndex,
+        // PERUBAHAN: Menambahkan item "Admin Panel"
+        destinations: const <Widget>[
+          NavigationDestination(
+            selectedIcon: Icon(Icons.dashboard),
+            icon: Icon(Icons.dashboard_outlined),
+            label: 'Dashboard',
+          ),
+          NavigationDestination(
+            selectedIcon: Icon(Icons.admin_panel_settings),
+            icon: Icon(Icons.admin_panel_settings_outlined),
+            label: 'Panel',
+          ),
+          NavigationDestination(
+            selectedIcon: Icon(Icons.person),
+            icon: Icon(Icons.person_outline),
+            label: 'Profil',
+          ),
+        ],
+      ),
+      floatingActionButton: _currentPageIndex == 0 && _selectedTab == 0
+          ? Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(colors: [Color(0xFFFFC107), Color(0xFFFFB300)]),
+          boxShadow: [BoxShadow(color: const Color(0xFFFFC107).withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))],
+        ),
+        child: FloatingActionButton.extended(
+          onPressed: () async {
+            final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateRapat()));
+            if (result == true) _refreshData();
+          },
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          label: const Text('Buat Rapat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          icon: const Icon(Icons.add, color: Colors.white),
+        ),
+      )
+          : null,
+      // PERUBAHAN: Menambahkan halaman panel ke daftar body
+      body: <Widget>[
+        _buildDashboardPage(),
+        _buildAdminPanelPage(), // Halaman baru ditambahkan di sini
+        _buildProfilePage(),
+      ][_currentPageIndex],
+    );
+  }
+
+  Widget _buildDashboardPage() {
+    final meetingRequests = _allRapat.where((r) => r.statusRapat == 'Menunggu').toList();
+
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1565C0))))
+        : _errorMessage != null
+        ? Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.error_outline, size: 64, color: Colors.red),
+          const SizedBox(height: 16),
+          Text(_errorMessage!, style: const TextStyle(fontSize: 16, color: Colors.red), textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          ElevatedButton(onPressed: _loadData, child: const Text('Coba Lagi')),
+        ]),
+      ),
+    )
+        : Column(
+      children: [
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12)),
+          child: Row(children: [
+            Expanded(
+              child: InkWell(
+                onTap: () => setState(() => _selectedTab = 0),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(color: _selectedTab == 0 ? const Color(0xFF1565C0) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
+                  child: Center(child: Text('Daftar Rapat', style: TextStyle(color: _selectedTab == 0 ? Colors.white : Colors.grey[700], fontWeight: FontWeight.bold))),
+                ),
+              ),
+            ),
+            Expanded(
+              child: InkWell(
+                onTap: () => setState(() => _selectedTab = 1),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(color: _selectedTab == 1 ? const Color(0xFF1565C0) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
+                  child: Stack(alignment: Alignment.center, children: [
+                    Center(child: Text('Pengajuan Rapat', style: TextStyle(color: _selectedTab == 1 ? Colors.white : Colors.grey[700], fontWeight: FontWeight.bold))),
+                    if (meetingRequests.isNotEmpty)
+                      Positioned(
+                        right: 10,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                          constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                          child: Center(child: Text(meetingRequests.length.toString(), style: const TextStyle(color: Colors.white, fontSize: 10), textAlign: TextAlign.center)),
+                        ),
+                      ),
+                  ]),
+                ),
+              ),
+            ),
+          ]),
+        ),
+        Expanded(
+            child: _selectedTab == 0
+                ? _buildMeetingList()
+                : _buildMeetingRequestList(meetingRequests)
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfilePage() {
+    final ThemeData theme = Theme.of(context);
+    return Card(
+      shadowColor: Colors.transparent,
+      margin: const EdgeInsets.all(8.0),
+      child: SizedBox.expand(
+        child: Center(
+          child: _isLoading
+              ? const CircularProgressIndicator()
+              : Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_currentUser != null) ...[
+                _currentUser!.photo != null
+                    ? CircleAvatar(
+                  backgroundImage: NetworkImage(_currentUser!.photo!),
+                  radius: 40,
+                )
+                    : CircleAvatar(
+                  backgroundColor: const Color(0xFF1565C0),
+                  radius: 40,
+                  child: Text(
+                    _currentUser!.name.isNotEmpty ? _currentUser!.name.substring(0, 1).toUpperCase() : 'A',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(_currentUser!.name, style: theme.textTheme.titleLarge),
+                const SizedBox(height: 8),
+                Text(_currentUser!.email, style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    await _authService.logout();
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(builder: (_) => const LoginScreen()),
                           (route) => false,
                     );
-                  }
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'username',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.person, color: Colors.grey),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Halo, ${_currentUser?.username ?? 'Admin'}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  PopupMenuItem(
-                    value: 'settings',
-                    child: Row(
-                      children: const [
-                        Icon(Icons.settings, color: Colors.blueGrey),
-                        SizedBox(width: 8),
-                        Text('ADMIN PANEL'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'logout',
-                    child: Row(
-                      children: [
-                        Icon(Icons.logout, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Logout'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        floatingActionButton: _selectedTab == 0
-            ? Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFFFFC107),
-                      Color(0xFFFFB300),
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFFC107).withOpacity(0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: FloatingActionButton.extended(
-                  onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CreateMeeting()),
-                    );
-                    setState(() {});
                   },
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  label: const Text(
-                    'Buat Rapat',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Logout'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
                   ),
-                  icon: const Icon(Icons.add, color: Colors.white),
                 ),
-              )
-            : null,
-        body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1565C0)),
-                ),
-              )
-            : _errorMessage != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 64,
-                          color: Colors.red,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _errorMessage!,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.red,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadData,
-                          child: const Text('Coba Lagi'),
-                        ),
-                      ],
-                    ),
-                  )
-                : Column(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[200],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedTab = 0;
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: _selectedTab == 0 
-                                        ? const Color(0xFF1565C0) 
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      'Daftar Rapat',
-                                      style: TextStyle(
-                                        color: _selectedTab == 0 
-                                            ? Colors.white 
-                                            : Colors.grey[700],
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedTab = 1;
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: _selectedTab == 1 
-                                        ? const Color(0xFF1565C0) 
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      Center(
-                                        child: Text(
-                                          'Pengajuan Rapat',
-                                          style: TextStyle(
-                                            color: _selectedTab == 1 
-                                                ? Colors.white 
-                                                : Colors.grey[700],
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        right: 10,
-                                        top: 0,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: BoxDecoration(
-                                            color: Colors.red,
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          constraints: const BoxConstraints(
-                                            minWidth: 12,
-                                            minHeight: 12,
-                                          ),
-                                          child: Text(
-                                            meetingRequests.length.toString(),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 8,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      Expanded(
-                        child: _selectedTab == 0 
-                            ? _buildMeetingList(approvedMeetings, upcomingMeetings, historyMeetings, meetings)
-                            : _buildMeetingRequestList(meetingRequests),
-                      ),
-                    ],
-                  ),
-      );
-    } catch (e) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Error'),
-          backgroundColor: Colors.red,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.error_outline,
-                size: 64,
-                color: Colors.red,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Terjadi kesalahan dalam menampilkan dashboard',
-                style: TextStyle(fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Error: ${e.toString()}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AdminDashboard(),
-                    ),
-                  );
-                },
-                child: const Text('Muat Ulang'),
-              ),
+              ] else ...[
+                const Icon(Icons.person_off, size: 48, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text('Gagal memuat profil', style: theme.textTheme.titleLarge),
+              ],
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMeetingList() {
+    // 1. Filter rapat berdasarkan cabang yang dipilih (jika ada)
+    final meetingsForDisplay = (_selectedCabangId == null)
+        ? _allRapat
+        : _allRapat.where((r) => r.idCabang == _selectedCabangId).toList();
+
+    // 2. Filter dan urutkan rapat berdasarkan status untuk setiap tab
+    final diterimaMeetings = meetingsForDisplay
+        .where((r) {
+      final status = r.statusRapat.toLowerCase();
+      return status == 'diterima' || status == 'disetujui' || status == 'berlangsung';
+    })
+        .toList()
+      ..sort((a, b) => a.waktuMulai.compareTo(b.waktuMulai)); // Ascending
+
+    final menungguMeetings = meetingsForDisplay
+        .where((r) => r.statusRapat.toLowerCase() == 'menunggu')
+        .toList()
+      ..sort((a, b) => a.waktuMulai.compareTo(b.waktuMulai)); // Ascending
+
+    final historyMeetings = meetingsForDisplay
+        .where((r) {
+      final status = r.statusRapat.toLowerCase();
+      return status == 'selesai' || status == 'ditolak';
+    })
+        .toList()
+      ..sort((a, b) => b.waktuMulai.compareTo(a.waktuMulai)); // Descending
+
+    // 3. Tentukan list mana yang akan ditampilkan berdasarkan tab aktif
+    List<Rapat> meetings;
+    switch (_activeMeetingFilterIndex) {
+      case 1:
+        meetings = menungguMeetings;
+        break;
+      case 2:
+        meetings = historyMeetings;
+        break;
+      case 0:
+      default:
+        meetings = diterimaMeetings;
+    }
+
+    if (_allRapat.isEmpty && _selectedCabangId == null) {
+      return Center(
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(color: const Color(0xFF1565C0).withOpacity(0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.meeting_room_outlined, size: 60, color: Color(0xFF1565C0)),
+          ),
+          const SizedBox(height: 24),
+          const Text('Belum ada rapat', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1565C0))),
+          const SizedBox(height: 8),
+          Text('Tekan tombol "+" untuk membuat rapat baru', style: TextStyle(fontSize: 16, color: Colors.grey[600]), textAlign: TextAlign.center),
+        ]),
       );
     }
-  }
 
-  Widget _buildMeetingList(List<Meeting> approvedMeetings, List<Meeting> upcomingMeetings, 
-                          List<Meeting> historyMeetings, List<Meeting> meetings) {
-    return approvedMeetings.isEmpty
-        ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1565C0).withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.meeting_room_outlined,
-                    size: 60,
-                    color: Color(0xFF1565C0),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Belum ada rapat',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1565C0),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Tekan tombol "+" untuk membuat rapat baru',
-                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          )
-        : Column(
+    return Column(
+      children: [
+        // Kartu Statistik
+        Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFFFFC107), Color(0xFFFFB300)]),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: const Color(0xFFFFC107).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+            Column(children: [
+              const Icon(Icons.event, color: Colors.white, size: 32),
+              const SizedBox(height: 8),
+              Text('${_allRapat.length}', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+              const Text('Total Rapat', style: TextStyle(color: Colors.white, fontSize: 12)),
+            ]),
+            Container(height: 60, width: 1, color: Colors.white.withOpacity(0.3)),
+            Column(children: [
+              const Icon(Icons.check_circle_outline, color: Colors.white, size: 32),
+              const SizedBox(height: 8),
+              Text('${_allRapat.where((r) => r.statusRapat.toLowerCase() == 'diterima' || r.statusRapat.toLowerCase() == 'disetujui' || r.statusRapat.toLowerCase() == 'berlangsung').length}', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+              const Text('Diterima', style: TextStyle(color: Colors.white, fontSize: 12)),
+            ]),
+          ]),
+        ),
+
+        const SizedBox(height: 16),
+        _buildCabangFilterDropdown(),
+        const SizedBox(height: 16),
+
+        // UI Tab Filter Baru
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFC107), Color(0xFFFFB300)],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFFC107).withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Column(
-                      children: [
-                        const Icon(
-                          Icons.event,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${approvedMeetings.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Text(
-                          'Total Rapat',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      height: 60,
-                      width: 1,
-                      color: Colors.white.withOpacity(0.3),
-                    ),
-                    Column(
-                      children: [
-                        const Icon(
-                          Icons.access_time,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${upcomingMeetings.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Text(
-                          'Akan Datang',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        showHistory = false;
-                      });
-                    },
-                    child: Text(
-                      "Rapat Akan Datang",
-                      style: TextStyle(
-                        color: showHistory
-                            ? Colors.grey
-                            : const Color(0xFF1565C0),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        showHistory = true;
-                      });
-                    },
-                    child: Text(
-                      "History Rapat",
-                      style: TextStyle(
-                        color: showHistory
-                            ? const Color(0xFF1565C0)
-                            : Colors.grey,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: meetings.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, i) {
-                    final Meeting m = meetings[i];
-                    final bool isUpcoming = m.startTime.isAfter(DateTime.now());
-
-                    return Card(
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.white,
-                              isUpcoming
-                                  ? const Color(0xFFF3F8FF)
-                                  : const Color(0xFFFFFBE6),
-                            ],
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Header dengan judul dan leading icon
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 50,
-                                    height: 50,
-                                    decoration: BoxDecoration(
-                                      color: isUpcoming
-                                          ? const Color(0xFF1565C0)
-                                          : const Color(0xFFFFC107),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(
-                                      isUpcoming
-                                          ? Icons.upcoming
-                                          : Icons.event_available,
-                                      color: Colors.white,
-                                      size: 24,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Text(
-                                      m.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                        color: Color(0xFF1565C0),
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              
-                              // Detail informasi rapat
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.meeting_room,
-                                    size: 16,
-                                    color: Colors.grey,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      m.room,
-                                      style: const TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.access_time,
-                                    size: 16,
-                                    color: Colors.grey,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      MeetingRepo.formatDate(m.startTime),
-                                      style: const TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.person,
-                                    size: 16,
-                                    color: Colors.grey,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      m.responsible,
-                                      style: const TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 14,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.tag,
-                                    size: 16,
-                                    color: Colors.grey,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'ID: ${m.id}',
-                                    style: const TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              
-                              // Action buttons dalam row yang responsive
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: [
-                                    // Tombol Edit
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFFFC107),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          borderRadius: BorderRadius.circular(8),
-                                          onTap: () async {
-                                            final result = await Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    EditMeeting(meeting: m),
-                                              ),
-                                            );
-
-                                            if (result == true) {
-                                              setState(() {});
-                                            }
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 8,
-                                            ),
-                                            child: const Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  Icons.edit,
-                                                  color: Colors.white,
-                                                  size: 16,
-                                                ),
-                                                SizedBox(width: 4),
-                                                Text(
-                                                  'Edit',
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    
-                                    // Tombol Export (hanya untuk rapat yang sudah selesai)
-                                    if (!isUpcoming) ...[
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.green,
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Material(
-                                          color: Colors.transparent,
-                                          child: InkWell(
-                                            borderRadius: BorderRadius.circular(8),
-                                            onTap: () => _exportMeetingData(m),
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                                vertical: 8,
-                                              ),
-                                              child: const Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(
-                                                    Icons.download,
-                                                    color: Colors.white,
-                                                    size: 16,
-                                                  ),
-                                                  SizedBox(width: 4),
-                                                  Text(
-                                                    'Export',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    
-                                    // Tombol QR Code
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF1565C0),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          borderRadius: BorderRadius.circular(8),
-                                          onTap: () {
-                                            // Navigator.push(
-                                            //   context,
-                                            //   MaterialPageRoute(
-                                            //     builder: (_) => MeetingQR(meeting: m),
-                                            //   ),
-                                            // );
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 8,
-                                            ),
-                                            child: const Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  Icons.qr_code,
-                                                  color: Colors.white,
-                                                  size: 16,
-                                                ),
-                                                SizedBox(width: 4),
-                                                Text(
-                                                  'QR',
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 80),
+              _buildFilterTab(label: "Diterima", index: 0),
+              _buildFilterTab(label: "Menunggu", index: 1),
+              _buildFilterTab(label: "History", index: 2),
             ],
-          );
+          ),
+        ),
+
+        meetings.isEmpty
+            ? Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Text(
+                _selectedCabangId == null
+                    ? 'Tidak ada rapat untuk kategori ini.'
+                    : 'Tidak ada data rapat untuk cabang yang dipilih.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              ),
+            ),
+          ),
+        )
+            : Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+            itemCount: meetings.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, i) {
+              final Rapat m = meetings[i];
+              return InkWell(
+                onTap: () => _showMeetingDetailsDialog(m),
+                borderRadius: BorderRadius.circular(16),
+                child: Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: LinearGradient(colors: [Colors.white, _getCardGradientColor(m.statusRapat)]),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(color: _getStatusColor(m.statusRapat), borderRadius: BorderRadius.circular(12)),
+                            child: Icon(_getStatusIcon(m.statusRapat), color: Colors.white, size: 24),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(child: Text(m.judul, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1565C0)), maxLines: 2, overflow: TextOverflow.ellipsis)),
+                        ]),
+                        const SizedBox(height: 16),
+                        _buildInfoRow(Icons.meeting_room, m.namaRuangan),
+                        const SizedBox(height: 8),
+                        _buildInfoRow(Icons.access_time, DateFormat('EEEE, dd MMMM yyyy HH:mm', 'id_ID').format(m.waktuMulai)),
+                        const SizedBox(height: 8),
+                        _buildInfoRow(Icons.person, m.namaPengaju),
+                        const SizedBox(height: 8),
+                        _buildInfoRow(Icons.flag, 'Status: ${m.statusRapat}'),
+                        const SizedBox(height: 16),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(children: [
+                            if (_activeMeetingFilterIndex != 2) ...[
+                              _buildActionButton(
+                                  'Edit', Icons.edit, const Color(0xFFFFC107), () async {
+                                final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => EditMeeting(rapat: m)));
+                                if (result == true) _refreshData();
+                              }),
+                              const SizedBox(width: 8),
+                            ],
+                            if (m.statusRapat == 'Selesai') ...[
+                              _buildActionButton('Export', Icons.download, Colors.green, () => _exportMeetingData(m)),
+                              const SizedBox(width: 8),
+                            ],
+                            _buildActionButton('QR', Icons.qr_code, const Color(0xFF1565C0), () {
+                              // Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingQR(rapat: m)));
+                            }),
+                          ]),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 
-  Widget _buildMeetingRequestList(List<MeetingRequest> requests) {
+
+  // Widget baru untuk membuat tab filter
+  Widget _buildFilterTab({required String label, required int index}) {
+    final bool isActive = _activeMeetingFilterIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _activeMeetingFilterIndex = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFF1565C0) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isActive ? Colors.white : Colors.grey[700],
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeetingRequestList(List<Rapat> requests) {
     if (requests.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1565C0).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_circle_outline,
-                size: 60,
-                color: Color(0xFF1565C0),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Tidak ada pengajuan rapat',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1565C0),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Semua pengajuan rapat telah diproses',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(color: const Color(0xFF1565C0).withOpacity(0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.check_circle_outline, size: 60, color: Color(0xFF1565C0)),
+          ),
+          const SizedBox(height: 24),
+          const Text('Tidak ada pengajuan rapat', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1565C0))),
+          const SizedBox(height: 8),
+          Text('Semua pengajuan rapat telah diproses', style: TextStyle(fontSize: 16, color: Colors.grey[600]), textAlign: TextAlign.center),
+        ]),
       );
     }
-
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: requests.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final request = requests[index];
-        
-        return Card(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white,
-                  Color(0xFFE3F2FD),
-                ],
-              ),
-            ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              leading: Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF9800),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.pending_actions,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              title: Text(
-                request.title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Color(0xFF1565C0),
-                ),
-              ),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.person,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Oleh: ${request.requester}',
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+        return InkWell(
+          onTap: () => _showMeetingDetailsDialog(request),
+          borderRadius: BorderRadius.circular(16),
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Container(
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), gradient: const LinearGradient(colors: [Colors.white, Color(0xFFE3F2FD)])),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(color: const Color(0xFFFF9800), borderRadius: BorderRadius.circular(12)),
+                      child: const Icon(Icons.pending_actions, color: Colors.white, size: 24),
                     ),
-                    const SizedBox(height: 4),
-                    
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.meeting_room,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          request.room,
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(request.judul, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1565C0)), maxLines: 2, overflow: TextOverflow.ellipsis)),
+                  ]),
+                  const SizedBox(height: 12),
+                  _buildInfoRow(Icons.person, 'Oleh: ${request.namaPengaju}'),
+                  const SizedBox(height: 6),
+                  _buildInfoRow(Icons.meeting_room, request.namaRuangan),
+                  const SizedBox(height: 6),
+                  _buildInfoRow(Icons.access_time, DateFormat('EEEE, dd MMMM yyyy HH:mm', 'id_ID').format(request.waktuMulai)),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(
+                      child: _buildRequestButton('Setujui', Icons.check, Colors.green, () => _approveRequest(request)),
                     ),
-                    const SizedBox(height: 4),
-                    
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.access_time,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          MeetingRepo.formatDate(request.proposedTime),
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildRequestButton('Tolak', Icons.close, Colors.red, () => _showRejectionDialog(request)),
                     ),
-                  ],
-                ),
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.check,
-                        color: Colors.white,
-                      ),
-                      tooltip: 'Setujui Pengajuan',
-                      onPressed: () async {
-                        bool confirm = await showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Setujui Pengajuan Rapat'),
-                            content: Text('Apakah Anda yakin ingin menyetujui pengajuan rapat "${request.title}"?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Batal'),
-                              ),
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                ),
-                                child: const Text('Setujui'),
-                              ),
-                            ],
-                          ),
-                        );
-                        
-                        if (confirm == true) {
-                          MeetingRequestRepo.approve(request);
-                          setState(() {});
-                          
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Pengajuan "${request.title}" telah disetujui'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        color: Colors.white,
-                      ),
-                      tooltip: 'Tolak Pengajuan',
-                      onPressed: () => _showRejectionDialog(request),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
+                  ]),
+                ]),
               ),
             ),
           ),
@@ -1135,10 +648,195 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  // Method untuk menampilkan dialog penolakan dengan alasan
-  Future<void> _showRejectionDialog(MeetingRequest request) async {
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey[700]),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, style: TextStyle(color: Colors.grey[800], fontSize: 14), overflow: TextOverflow.ellipsis)),
+      ],
+    );
+  }
+
+  Widget _buildActionButton(String label, IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildRequestButton(String label, IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.grey[700], size: 20),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                const SizedBox(height: 2),
+                Text(
+                  value.isNotEmpty ? value : '-',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Colors.black87),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper functions untuk warna dan ikon berdasarkan status
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'Disetujui': return Colors.green;
+      case 'Berlangsung': return Colors.blue;
+      case 'Menunggu': return Colors.orange;
+      case 'Ditolak': return Colors.red;
+      case 'Selesai': return Colors.grey;
+      default: return Colors.purple;
+    }
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status) {
+      case 'Disetujui': return Icons.check_circle;
+      case 'Berlangsung': return Icons.play_circle_filled;
+      case 'Menunggu': return Icons.pending_actions;
+      case 'Ditolak': return Icons.cancel;
+      case 'Selesai': return Icons.history;
+      default: return Icons.help;
+    }
+  }
+
+  Color _getCardGradientColor(String status) {
+    switch (status) {
+      case 'Disetujui': return Colors.green.shade50;
+      case 'Berlangsung': return Colors.blue.shade50;
+      case 'Menunggu': return Colors.orange.shade50;
+      case 'Ditolak': return Colors.red.shade50;
+      case 'Selesai': return Colors.grey.shade100;
+      default: return Colors.purple.shade50;
+    }
+  }
+
+  // GANTI FUNGSI LAMA ANDA DENGAN INI
+  void _showMeetingDetailsDialog(Rapat rapat) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(children: [
+            Icon(Icons.info_outline, color: Color(0xFF1565C0)),
+            SizedBox(width: 10),
+            Text('Detail Rapat', style: TextStyle(fontWeight: FontWeight.bold)),
+          ]),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(rapat.judul, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.black)),
+                const SizedBox(height: 8),
+                const Divider(),
+                _buildDetailRow(Icons.tag, "ID Rapat", rapat.idRapat.toString()),
+                _buildDetailRow(Icons.description_outlined, "Deskripsi", rapat.deskripsi),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.flag_outlined, color: Colors.grey[700], size: 20),
+                      const SizedBox(width: 16),
+                      Chip(
+                        avatar: Icon(_getStatusIcon(rapat.statusRapat), color: _getStatusColor(rapat.statusRapat), size: 18),
+                        label: Text(rapat.statusRapat, style: TextStyle(color: _getStatusColor(rapat.statusRapat), fontWeight: FontWeight.bold)),
+                        backgroundColor: _getStatusColor(rapat.statusRapat).withOpacity(0.1),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      ),
+                    ],
+                  ),
+                ),
+                _buildDetailRow(Icons.person_outline, "Pengaju", rapat.namaPengaju),
+                _buildDetailRow(Icons.business_outlined, "Cabang", rapat.namaCabang),
+                _buildDetailRow(Icons.meeting_room_outlined, "Ruangan", rapat.namaRuangan),
+                _buildDetailRow(Icons.calendar_today_outlined, "Waktu Mulai", DateFormat('EEEE, dd MMMM yyyy HH:mm', 'id_ID').format(rapat.waktuMulai)),
+                _buildDetailRow(Icons.timelapse_outlined, "Waktu Selesai", rapat.waktuSelesaiFormatted),
+              ],
+            ),
+          ),
+          actions: [
+            // <-- TOMBOL HAPUS DITAMBAHKAN DI SINI
+            TextButton(
+              child: const Text("Hapus", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              onPressed: () {
+                Navigator.of(context).pop(); // Tutup dialog detail
+                _showDeleteConfirmationFromDetail(rapat); // Tampilkan dialog konfirmasi hapus
+              },
+            ),
+            TextButton(
+              child: const Text("Tutup", style: TextStyle(color: Color(0xFF1565C0), fontWeight: FontWeight.bold)),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _approveRequest(Rapat request) async {
+    bool? confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Setujui Pengajuan Rapat'),
+        content: Text('Apakah Anda yakin ingin menyetujui pengajuan rapat "${request.judul}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text('Setujui')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await _rapatApiService.approveRapat(request.idRapat);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Pengajuan "${request.judul}" telah disetujui'), backgroundColor: Colors.green));
+      _refreshData();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal menyetujui: ${e.toString()}'), backgroundColor: Colors.red));
+    }
+  }
+
+  Future<void> _showRejectionDialog(Rapat request) async {
     final reasonController = TextEditingController();
-    
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1147,61 +845,137 @@ class _AdminDashboardState extends State<AdminDashboard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Apakah Anda yakin ingin menolak pengajuan rapat "${request.title}"?'),
+            Text('Apakah Anda yakin ingin menolak pengajuan rapat "${request.judul}"?'),
             const SizedBox(height: 16),
-            const Text(
-              'Alasan Penolakan:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+            const Text('Alasan Penolakan:', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(
-                hintText: 'Masukkan alasan penolakan...',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
+            TextField(controller: reasonController, decoration: const InputDecoration(hintText: 'Masukkan alasan penolakan...', border: OutlineInputBorder()), maxLines: 3),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
           ElevatedButton(
             onPressed: () {
               if (reasonController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Harap masukkan alasan penolakan'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Harap masukkan alasan penolakan'), backgroundColor: Colors.red));
                 return;
               }
               Navigator.pop(context, true);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Tolak'),
           ),
         ],
       ),
     );
-    
-    if (confirm == true) {
+    if (confirm != true) return;
+
+    try {
       final rejectionReason = reasonController.text.trim();
-      MeetingRequestRepo.reject(request, reason: rejectionReason);
-      setState(() {});
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Pengajuan "${request.title}" telah ditolak'),
-          backgroundColor: Colors.red,
+      await _rapatApiService.rejectRapat(request.idRapat, rejectionReason);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Pengajuan "${request.judul}" telah ditolak'), backgroundColor: Colors.red));
+      _refreshData();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal menolak: ${e.toString()}'), backgroundColor: Colors.red));
+    }
+  }
+
+  Widget _buildCabangFilterDropdown() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0), // Mengurangi padding atas
+      child: DropdownButtonFormField<int?>(
+        value: _selectedCabangId,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: 'Filter Berdasarkan Cabang',
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          prefixIcon: const Icon(Icons.business_outlined),
         ),
+        hint: const Text('Semua Cabang'),
+        items: [
+          const DropdownMenuItem<int?>(
+            value: null,
+            child: Text('Semua Cabang', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          ..._allCabang.map<DropdownMenuItem<int?>>((cabang) {
+            final int id = (cabang['id'] ?? 0) as int;
+            final String nama = (cabang['cabang'] ?? 'Cabang Tanpa Nama') as String;
+            return DropdownMenuItem<int?>(
+              value: id,
+              child: Text(nama),
+            );
+          }).toList(),
+        ],
+        onChanged: (int? newValue) {
+          setState(() {
+            _selectedCabangId = newValue;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildAdminPanelPage() {
+    // Ini adalah placeholder. Anda bisa mengisinya dengan widget apa pun nanti.
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.admin_panel_settings_outlined, size: 80, color: Colors.grey),
+          SizedBox(height: 16),
+          Text(
+            'Halaman Panel Admin',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              'Anda dapat menambahkan fitur seperti manajemen user, pengaturan, atau statistik lanjutan di sini.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // TAMBAHKAN DUA FUNGSI BARU INI DI DALAM class _AdminDashboardState
+  Future<void> _deleteRapat(int idRapat, String judul) async {
+    try {
+      await _rapatApiService.deleteRapat(idRapat);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Rapat "$judul" berhasil dihapus'), backgroundColor: Colors.orange),
+      );
+      _refreshData(); // Refresh data setelah berhasil menghapus
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menghapus rapat: $e'), backgroundColor: Colors.red),
       );
     }
+  }
+
+  void _showDeleteConfirmationFromDetail(Rapat rapat) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Konfirmasi Hapus'),
+        content: Text('Apakah Anda yakin ingin menghapus rapat "${rapat.judul}"? Tindakan ini tidak dapat diurungkan.'),
+        actions: [
+          TextButton(
+            child: const Text('Batal'),
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+            onPressed: () {
+              Navigator.of(ctx).pop(); // Tutup dialog konfirmasi
+              _deleteRapat(rapat.idRapat, rapat.judul);
+            },
+          ),
+        ],
+      ),
+    );
   }
 }
