@@ -133,4 +133,21 @@ class AuthController extends Controller
             'updated_at' => $user->updated_at,
         ]);
     }
+
+        public function getUsersWithRole(Request $request)
+    {
+        // 🔒 LANGKAH KEAMANAN: Pastikan hanya user yang berwenang (misal: admin)
+        // yang bisa mengakses daftar pengguna ini. Anda perlu membuat Gate/Policy
+        // bernama 'view-users' terlebih dahulu.
+        $this->authorize('create-user');
+
+        // Mengambil semua user dengan id_role = 2
+        // 'with' digunakan untuk eager loading agar tidak terjadi N+1 problem query
+        $users = User::with(['role', 'division'])
+                     ->where('id_role', 2)
+                     ->get();
+
+        // Mengembalikan data user dalam format JSON
+        return response()->json(['users' => $users], 200);
+    }
 }

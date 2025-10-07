@@ -45,7 +45,7 @@ class AbsensiController extends Controller
             'message' => 'Absensi berhasil dicatat.',
             'data' => $absensi,
         ], 201); // 201 Created
-    }
+    }   
 
     /**
      * Endpoint untuk melihat riwayat absensi user yang sedang login.

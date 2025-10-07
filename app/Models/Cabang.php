@@ -10,7 +10,7 @@ class Cabang extends Model
     use HasFactory;
 
     protected $table = 'cabang';
-    protected $primaryKey = 'id_cabang';
+    protected $primaryKey = 'id';
 
     protected $fillable = [
         'cabang',
@@ -22,7 +22,7 @@ class Cabang extends Model
      */
     public function room()
     {
-        return $this->hasMany(Room::class, 'id_cabang', 'id_cabang');
+        return $this->hasMany(Room::class, 'id_cabang', 'id');
     }
 
     /**
@@ -30,6 +30,6 @@ class Cabang extends Model
      */
     public function rapat()
     {
-        return $this->hasMany(Rapat::class, 'id_cabang', 'id_cabang');
+        return $this->hasMany(Rapat::class, 'id_room', 'id_cabang');
     }
 }

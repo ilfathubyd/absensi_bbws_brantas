@@ -27,7 +27,7 @@ class RapatController extends Controller
             'judul' => 'required|string|max:100',
             'tanggal' => 'required|date',
             'waktu_start' => 'required', // Format jam:menit
-            'waktu_end' => 'required|after:waktu_start',
+            'waktu_end' => 'after:waktu_start',
             'desc' => 'nullable|string|max:100',
         ]);
 
@@ -64,8 +64,23 @@ class RapatController extends Controller
     // GET: /api/rapat/{id}
     public function show($id)
     {
-        $rapat = Rapat::with(['room', 'status', 'pengaju', 'peserta'])->findOrFail($id);
+        $rapat = Rapat::with(['room', 'status', 'pengaju'])->findOrFail($id);
 
+        return response()->json($rapat);
+    }
+
+    // GET: /api/rapat/saya (Method Baru)
+    public function rapatSaya()
+    {
+        // 1. Ambil ID user yang sedang login
+        $userId = Auth::user()->id_user;
+
+        // 2. Ambil data rapat yang memiliki 'id_user_pengaju' sama dengan ID user yang login
+        $rapat = Rapat::with(['room', 'status', 'pengaju', 'peserta'])
+            ->where('id_user_pengaju', $userId)
+            ->get();
+
+        // 3. Kembalikan response dalam bentuk JSON
         return response()->json($rapat);
     }
 
@@ -81,6 +96,55 @@ class RapatController extends Controller
             'data' => $rapat,
         ]);
     }
+
+     // POST: /api/rapat/{id}/setujui
+    public function setujuiRapat(Request $request, $id)
+    {
+        // 1. Periksa apakah user yang mengakses adalah Admin
+        // Asumsi: Role Admin memiliki id_role = 1
+        if (Auth::user()->id_role != 1) {
+            return response()->json([
+                'message' => 'Hanya Admin yang dapat menyetujui rapat.'
+            ], 403); // 403 Forbidden
+        }
+
+        // 2. Cari rapat berdasarkan ID
+        $rapat = Rapat::findOrFail($id);
+
+        // 3. Ubah statusnya menjadi 'Disetujui'
+        // Asumsi: id_status = 1 adalah 'Disetujui'
+        $rapat->id_status = 1;
+        $rapat->save(); // Simpan perubahan
+
+        // 4. Kembalikan response sukses
+        return response()->json([
+            'message' => 'Rapat berhasil disetujui.',
+            'data' => $rapat,
+        ]);
+    }
+
+    // (Opsional) Fungsi untuk menolak rapat
+    // POST: /api/rapat/{id}/tolak
+    public function tolakRapat(Request $request, $id)
+    {
+        if (Auth::user()->id_role != 1) {
+            return response()->json([
+                'message' => 'Hanya Admin yang dapat menolak rapat.'
+            ], 403);
+        }
+
+        $rapat = Rapat::findOrFail($id);
+        
+        // Asumsi: id_status = 2 adalah 'Ditolak'
+        $rapat->id_status = 2; 
+        $rapat->save();
+
+        return response()->json([
+            'message' => 'Rapat telah ditolak.',
+            'data' => $rapat,
+        ]);
+    }
+
 
     // DELETE: /api/rapat/{id}
     public function destroy($id)

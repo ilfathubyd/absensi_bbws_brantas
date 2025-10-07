@@ -10,6 +10,7 @@ class Room extends Model
     use HasFactory;
 
     protected $table = 'room';
+
     protected $primaryKey = 'id_room';
 
     protected $fillable = [
@@ -22,7 +23,7 @@ class Room extends Model
      */
     public function cabang()
     {
-        return $this->belongsTo(Cabang::class, 'id_cabang', 'id_cabang');
+        return $this->belongsTo(Cabang::class, 'id_cabang', 'id');
     }
 
     /**
@@ -31,5 +32,10 @@ class Room extends Model
     public function rapat()
     {
         return $this->hasMany(Rapat::class, 'id_room', 'id_room');
+    }
+
+    public function statusRuangan(): BelongsTo
+    {
+        return $this->belongsTo(StatusRuangan::class, 'status_ruangan_id');
     }
 }

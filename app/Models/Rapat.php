@@ -4,11 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\User;
-use App\Models\Room;
-use App\Models\StatusRapat;
-use App\Models\PesertaRapat;
-
 
 class Rapat extends Model
 {
@@ -48,9 +43,23 @@ class Rapat extends Model
         return $this->belongsTo(User::class, 'id_user_pengaju', 'id_user');
     }
 
+
+    public function absensi()
+    {
+        return $this->hasMany(Absensi::class, 'id_rapat', 'id_rapat');
+    }
+
     // Relasi dengan peserta rapat
     public function peserta()
     {
-        return $this->hasMany(PesertaRapat::class, 'id_rapat', 'id_rapat');
+        return $this->hasManyThrough(
+            User::class,    // Model tujuan yang ingin diakses (User)
+            Absensi::class, // Model perantara (Absensi)
+            'id_rapat',     // Foreign key di tabel absensi (menghubungkan ke rapat)
+            'id_user',      // Foreign key di tabel absensi (menghubungkan ke user)
+            'id_rapat',     // Local key di tabel rapat
+            'id_user'       // Local key di tabel user
+        );
     }
+
 }
