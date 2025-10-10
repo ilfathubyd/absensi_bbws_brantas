@@ -16,12 +16,15 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/userPIC', [AuthController::class, 'getUsersWithRole']);
+    Route::get('/users-by-division', [AuthController::class, 'getUsersByDivision']);
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/profile', [AuthController::class, 'profile']);
 
     Route::get('/rapat/saya', [RapatController::class, 'rapatSaya']);
     Route::apiResource('rapat', RapatController::class);
+    Route::get('rapat/{id}/peserta', [RapatController::class, 'getPesertaRapat']);
+    Route::post('rapat/{id}/peserta', [RapatController::class, 'addPesertaRapat']);
     Route::post('rapat/{id}/setujui', [RapatController::class, 'setujuiRapat']);
     Route::post('rapat/{id}/tolak', [RapatController::class, 'tolakRapat']);
 

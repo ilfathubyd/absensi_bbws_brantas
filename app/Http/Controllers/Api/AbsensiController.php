@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Absensi;
+use App\Models\Rapat;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -18,6 +19,18 @@ class AbsensiController extends Controller
         ]);
 
         $user = Auth::user();
+
+        // PERBAIKAN: Cek apakah user adalah peserta rapat atau pengaju rapat
+        $rapat = Rapat::with('peserta')->find($request->id_rapat);
+
+        $isPengaju = $rapat->id_user_pengaju == $user->id_user;
+        $isPeserta = $rapat->peserta->contains($user->id_user);
+
+        if (! $isPengaju && ! $isPeserta) {
+            return response()->json([
+                'message' => 'Anda tidak terdaftar sebagai peserta rapat ini.',
+            ], 403); // 403 Forbidden
+        }
 
         // Cek apakah user sudah absen untuk rapat ini
         $existingAbsensi = Absensi::where('id_user', $user->id_user)
@@ -38,14 +51,14 @@ class AbsensiController extends Controller
             'longitude' => $request->longitude,
             'waktu_absen' => now(),
             'status' => 'hadir', // Default status saat absen
-            'foto' => 'jika ada upload foto, proses di sini'
+            'foto' => 'jika ada upload foto, proses di sini',
         ]);
 
         return response()->json([
             'message' => 'Absensi berhasil dicatat.',
             'data' => $absensi,
         ], 201); // 201 Created
-    }   
+    }
 
     /**
      * Endpoint untuk melihat riwayat absensi user yang sedang login.

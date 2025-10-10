@@ -24,9 +24,13 @@ class AppServiceProvider extends ServiceProvider
         $this->registerPolicies();
 
         // PINDAHKAN GATE KE SINI
-        Gate::define('create-user', function (User $user) {
+        Gate::define('admin-auth', function (User $user) {
             // Gunakan nama variabel $user (singular) agar lebih jelas
             return $user->id_role == 1; // Angka 1 menandakan admin
+        });
+
+        Gate::define('pic-auth', function (User $user) {
+            return in_array($user->id_role, [1, 2]); // Izinkan jika role adalah Admin (1) atau PIC (2)
         });
     }
 }

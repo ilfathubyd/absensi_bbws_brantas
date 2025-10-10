@@ -49,17 +49,14 @@ class Rapat extends Model
         return $this->hasMany(Absensi::class, 'id_rapat', 'id_rapat');
     }
 
-    // Relasi dengan peserta rapat
+    /**
+     * Relasi many-to-many dengan User (peserta rapat).
+     * Menggunakan tabel pivot 'rapat_peserta'.
+     */
     public function peserta()
     {
-        return $this->hasManyThrough(
-            User::class,    // Model tujuan yang ingin diakses (User)
-            Absensi::class, // Model perantara (Absensi)
-            'id_rapat',     // Foreign key di tabel absensi (menghubungkan ke rapat)
-            'id_user',      // Foreign key di tabel absensi (menghubungkan ke user)
-            'id_rapat',     // Local key di tabel rapat
-            'id_user'       // Local key di tabel user
-        );
+        return $this->belongsToMany(User::class, 'rapat_peserta', 'id_rapat', 'id_user')
+                    ->withTimestamps();
     }
 
 }

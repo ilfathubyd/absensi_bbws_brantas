@@ -29,6 +29,8 @@ class RapatController extends Controller
             'waktu_start' => 'required', // Format jam:menit
             'waktu_end' => 'after:waktu_start',
             'desc' => 'nullable|string|max:100',
+            'peserta_ids' => 'nullable|array', // Terima array ID peserta
+            'peserta_ids.*' => 'exists:users,id_user', // Pastikan setiap ID ada di tabel users
         ]);
 
         // 2. Ambil data user yang sedang login
@@ -39,32 +41,37 @@ class RapatController extends Controller
 
         // 4. Terapkan logika untuk id_status berdasarkan role user
         // Asumsi: Role Admin memiliki id_role = 1
-        // Asumsi: Role PIC memiliki id_role = 3
+        // Asumsi: Role PIC memiliki id_role = 2
         if ($user->id_role == 1) { // Jika yang membuat adalah Admin
             $validatedData['id_status'] = 1; // Langsung disetujui
         } elseif ($user->id_role == 2) { // Jika yang membuat adalah PIC
             $validatedData['id_status'] = 3; // Menunggu Persetujuan Admin
         } else {
-            // Jika role tidak diizinkan, langsung kembalikan response error.
+            // Jika role tidak diizinkan, kembalikan response error yang jelas.
             return response()->json([
-                'message' => 'Rapat telah ditolak',
+                'message' => 'Anda tidak memiliki izin untuk membuat rapat.',
             ], 403); // 403 Forbidden -> User tidak punya izin.
         }
 
         // 5. Buat data rapat dengan data yang sudah dimodifikasi
         $rapat = Rapat::create($validatedData);
 
-        // 6. Kembalikan response
+        // 6. Jika ada peserta_ids, lampirkan (attach) ke rapat yang baru dibuat
+        if (! empty($validatedData['peserta_ids'])) {
+            $rapat->peserta()->attach($validatedData['peserta_ids']);
+        }
+
+        // 7. Kembalikan response
         return response()->json([
-            'message' => 'Rapat berhasil dibuat',
-            'data' => $rapat->load(['room', 'status', 'pengaju']), // Muat relasi agar response lengkap
+            'message' => 'Rapat berhasil dibuat.',
+            'data' => $rapat->load(['room', 'status', 'pengaju', 'peserta']), // Muat semua relasi yang relevan
         ], 201);
     }
 
     // GET: /api/rapat/{id}
     public function show($id)
     {
-        $rapat = Rapat::with(['room', 'status', 'pengaju'])->findOrFail($id);
+        $rapat = Rapat::with(['room', 'status', 'pengaju', 'peserta'])->findOrFail($id);
 
         return response()->json($rapat);
     }
@@ -89,24 +96,36 @@ class RapatController extends Controller
     {
         $rapat = Rapat::findOrFail($id);
 
-        $rapat->update($request->all());
+        // Validasi data yang masuk, mirip dengan store
+        $validatedData = $request->validate([
+            'id_room' => 'sometimes|required|exists:room,id_room',
+            'judul' => 'sometimes|required|string|max:100',
+            'tanggal' => 'sometimes|required|date',
+            'waktu_start' => 'sometimes|required',
+            'waktu_end' => 'sometimes|after:waktu_start',
+            'desc' => 'nullable|string|max:100',
+            'peserta_ids' => 'nullable|array',
+            'peserta_ids.*' => 'exists:users,id_user',
+        ]);
+
+        $rapat->update($validatedData);
+
+        // Gunakan sync() untuk memperbarui daftar peserta.
+        // Ini akan otomatis menambah/menghapus peserta sesuai array yang diberikan.
+        if ($request->has('peserta_ids')) {
+            $rapat->peserta()->sync($validatedData['peserta_ids']);
+        }
 
         return response()->json([
             'message' => 'Rapat berhasil diperbarui',
-            'data' => $rapat,
+            'data' => $rapat->load(['room', 'status', 'pengaju', 'peserta']), // Muat ulang relasi setelah update
         ]);
     }
 
-     // POST: /api/rapat/{id}/setujui
+    // POST: /api/rapat/{id}/setujui
     public function setujuiRapat(Request $request, $id)
     {
-        // 1. Periksa apakah user yang mengakses adalah Admin
-        // Asumsi: Role Admin memiliki id_role = 1
-        if (Auth::user()->id_role != 1) {
-            return response()->json([
-                'message' => 'Hanya Admin yang dapat menyetujui rapat.'
-            ], 403); // 403 Forbidden
-        }
+        // $this->authorize('admin-auth'); // Hanya Admin yang bisa menyetujui
 
         // 2. Cari rapat berdasarkan ID
         $rapat = Rapat::findOrFail($id);
@@ -127,16 +146,12 @@ class RapatController extends Controller
     // POST: /api/rapat/{id}/tolak
     public function tolakRapat(Request $request, $id)
     {
-        if (Auth::user()->id_role != 1) {
-            return response()->json([
-                'message' => 'Hanya Admin yang dapat menolak rapat.'
-            ], 403);
-        }
+        $this->authorize('admin-auth'); // Hanya Admin yang bisa menyetujui
 
         $rapat = Rapat::findOrFail($id);
-        
+
         // Asumsi: id_status = 2 adalah 'Ditolak'
-        $rapat->id_status = 2; 
+        $rapat->id_status = 2;
         $rapat->save();
 
         return response()->json([
@@ -145,7 +160,6 @@ class RapatController extends Controller
         ]);
     }
 
-
     // DELETE: /api/rapat/{id}
     public function destroy($id)
     {
@@ -153,5 +167,46 @@ class RapatController extends Controller
         $rapat->delete();
 
         return response()->json(['message' => 'Rapat berhasil dihapus']);
+    }
+
+    /**
+     * Mengambil daftar peserta untuk rapat tertentu.
+     * GET: /api/rapat/{id}/peserta
+     */
+    public function getPesertaRapat($id)
+    {
+        $rapat = Rapat::with('peserta')->findOrFail($id);
+
+        return response()->json([
+            'message' => 'Berhasil mengambil data peserta rapat.',
+            'data' => $rapat->peserta,
+        ]);
+    }
+
+    /**
+     * Menambahkan peserta ke rapat yang sudah ada.
+     * POST: /api/rapat/{id}/peserta
+     */
+    public function addPesertaRapat(Request $request, $id)
+    {
+        // 1. Validasi input yang dikirim
+        $validatedData = $request->validate([
+            'peserta_ids' => 'required|array',
+            'peserta_ids.*' => 'exists:users,id_user', // Pastikan setiap ID ada di tabel users
+        ]);
+
+        // 2. Cari rapat berdasarkan ID
+        $rapat = Rapat::findOrFail($id);
+
+        // 3. Gunakan syncWithoutDetaching() untuk menambahkan peserta baru.
+        // Metode ini lebih aman karena tidak akan menyebabkan error jika peserta
+        // yang sama ditambahkan lagi (mencegah duplikasi) dan tidak menghapus peserta lama.
+        $rapat->peserta()->syncWithoutDetaching($validatedData['peserta_ids']);
+
+        // 4. Kembalikan response sukses dengan daftar peserta yang telah diperbarui
+        return response()->json([
+            'message' => 'Peserta berhasil ditambahkan ke rapat.',
+            'data' => $rapat->load('peserta')->peserta, // Muat ulang relasi peserta dan kirim datanya
+        ]);
     }
 }

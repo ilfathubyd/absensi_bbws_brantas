@@ -19,7 +19,7 @@ class AuthController extends Controller
         // 🔒 LANGKAH KEAMANAN: Periksa apakah pengguna yang login adalah admin
         // Jika bukan admin, kode akan berhenti di sini dan otomatis
         // mengembalikan response 403 Forbidden.
-        $this->authorize('create-user');
+        $this->authorize('admin-auth'); // Hanya Admin yang bisa menyetujui
 
         // Kode validasi Anda tetap sama
         $v = Validator::make($request->all(), [
@@ -134,20 +134,39 @@ class AuthController extends Controller
         ]);
     }
 
-        public function getUsersWithRole(Request $request)
+    public function getUsersWithRole(Request $request)
     {
         // 🔒 LANGKAH KEAMANAN: Pastikan hanya user yang berwenang (misal: admin)
         // yang bisa mengakses daftar pengguna ini. Anda perlu membuat Gate/Policy
         // bernama 'view-users' terlebih dahulu.
-        $this->authorize('create-user');
+        $this->authorize('pic-auth');  // Hanya Admin yang bisa menyetujui
 
         // Mengambil semua user dengan id_role = 2
         // 'with' digunakan untuk eager loading agar tidak terjadi N+1 problem query
         $users = User::with(['role', 'division'])
-                     ->where('id_role', 2)
-                     ->get();
+            ->where('id_role', 2)
+            ->get();
 
         // Mengembalikan data user dalam format JSON
         return response()->json(['users' => $users], 200);
     }
+
+    public function getUsersByDivision(Request $request)
+    {
+        // 🔒 LANGKAH KEAMANAN: Pastikan hanya user yang berwenang yang bisa mengakses.
+        // Menggunakan policy yang sama dengan endpoint user lainnya untuk konsistensi.
+        $this->authorize('pic-auth'); 
+        // Hanya Admin yang bisa menyetujui
+
+        // Mengambil semua user dengan id_division = 2002
+        // 'with' digunakan untuk eager loading agar tidak terjadi N+1 problem query
+        $users = User::with(['role', 'division'])
+            ->where('id_division', 2002)
+            ->get();
+
+        // Mengembalikan data user dalam format JSON
+        return response()->json(['users' => $users], 200);
+    }
+
+
 }

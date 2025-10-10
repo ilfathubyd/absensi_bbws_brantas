@@ -95,6 +95,7 @@ class User extends Authenticatable
 
     public function rapatDiikuti()
     {
-        return $this->belongsToMany(\App\Models\Rapat::class, 'bbws_absensi_peserta_rapat', 'id_user', 'id_rapat');
+        return $this->belongsToMany(Rapat::class, 'rapat_peserta', 'id_user', 'id_rapat')
+                    ->withTimestamps();
     }
 }
