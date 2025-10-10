@@ -45,15 +45,24 @@ class AppUser {
       // Handle null dengan aman
       id_division: json['id_division'] as int?,
       name: json['name'] as String? ?? 'No Name', // Beri default jika nama null
-      username: json['username'] as String? ?? 'no_username', // Beri default jika username null
+      username: json['username'] as String? ??
+          'no_username', // Beri default jika username null
       email: json['email'] as String? ?? '', // Default empty string jika null
       phone: json['phone'] as String?,
       gender: json['gender'] as String?,
       photo: json['photo'] as String?,
       createdAt: json['created_at'] as String?,
       updatedAt: json['updated_at'] as String?,
-      role: json['role'] as String?,
-      division: json['division'] as String?,
+      // PERBAIKAN: Mengambil nama role dari objek bersarang.
+      // json['role'] adalah Map, kita ambil nilai dari key 'role' di dalamnya.
+      role: json['role'] is Map
+          ? json['role']['role'] as String?
+          : json['role'] as String?,
+      // PERBAIKAN: Mengambil nama divisi dari objek bersarang.
+      // json['division'] adalah Map, kita ambil nilai dari key 'division_name' di dalamnya.
+      division: json['division'] is Map
+          ? json['division']['division_name'] as String?
+          : json['division'] as String?,
     );
   }
   // ==========================================================

@@ -1,5 +1,6 @@
 // lib/screens/login_screen.dart
 
+import 'package:absen_app/screens/admin/admin_dashboard.dart';
 import 'package:absen_app/screens/user/user_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:absen_app/screens/pic/pic_dashboard.dart' show PICDashboard;
@@ -59,9 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       switch (user.id_role) {
         case 1: // Admin
-          targetScreen = const Placeholder(
-            child: Center(child: Text("Admin Dashboard belum dibuat")),
-          );
+        targetScreen = const AdminDashboard();
           screenName = 'Admin Dashboard';
           break;
         case 2: // PIC

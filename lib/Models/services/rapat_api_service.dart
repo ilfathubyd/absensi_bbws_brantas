@@ -1,24 +1,27 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:absen_app/services/auth_service.dart';
+import 'package:absen_app/config/api_config.dart'; // <-- Import config
 
 import '../models/rapat.dart';
 
 class RapatApiService {
-  static const String _baseUrl = "http://192.168.50.60:8000/api";
+  static const String _baseUrl = ApiConfig.baseUrl;
 
   final AuthService _authService;
 
-  RapatApiService({AuthService? authService}) : _authService = authService ?? AuthService();
+  RapatApiService({AuthService? authService})
+      : _authService = authService ?? AuthService();
 
-    Future<Map<String, dynamic>> createRapat({
+  Future<Map<String, dynamic>> createRapat({
     required int idCabang,
     required int idRoom,
     required String judul,
     required String tanggal, // format YYYY-MM-DD
     required String waktuStart, // HH:mm
-    String? waktuEnd,   // HH:mm or null
+    String? waktuEnd, // HH:mm or null
     String? desc,
+    List<int>? userIds, // <-- TAMBAHKAN INI
   }) async {
     final token = await _authService.getToken();
     if (token == null) {
@@ -43,6 +46,8 @@ class RapatApiService {
             'waktu_start': waktuStart,
             if (waktuEnd != null) 'waktu_end': waktuEnd,
             if (desc != null) 'desc': desc,
+            if (userIds != null && userIds.isNotEmpty)
+              'users': userIds, // <-- TAMBAHKAN INI
           }),
         )
         .timeout(const Duration(seconds: 30));
@@ -70,12 +75,10 @@ class RapatApiService {
       throw Exception('Tidak terautentikasi');
     }
     final uri = Uri.parse('$_baseUrl/cabang');
-    final response = await http
-        .get(uri, headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        })
-        .timeout(const Duration(seconds: 30));
+    final response = await http.get(uri, headers: {
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+    }).timeout(const Duration(seconds: 30));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -99,12 +102,10 @@ class RapatApiService {
     // URL diubah untuk menargetkan endpoint baru
     final uri = Uri.parse('$_baseUrl/cabang/$idCabang/room');
 
-    final response = await http
-        .get(uri, headers: {
+    final response = await http.get(uri, headers: {
       'Accept': 'application/json',
       'Authorization': 'Bearer $token',
-    })
-        .timeout(const Duration(seconds: 30));
+    }).timeout(const Duration(seconds: 30));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -125,19 +126,16 @@ class RapatApiService {
     throw Exception('Gagal memuat ruangan (status: ${response.statusCode})');
   }
 
-
   Future<List<Map<String, dynamic>>> fetchRapatByUser() async {
     final token = await _authService.getToken();
     if (token == null) {
       throw Exception('Tidak terautentikasi');
     }
     final uri = Uri.parse('$_baseUrl/rapat/saya');
-    final response = await http
-        .get(uri, headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        })
-        .timeout(const Duration(seconds: 30));
+    final response = await http.get(uri, headers: {
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+    }).timeout(const Duration(seconds: 30));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -150,8 +148,8 @@ class RapatApiService {
       throw Exception('Format data rapat tidak dikenali');
     }
     throw Exception('Gagal memuat rapat');
+  }
 
-    }
   Future<List<Map<String, dynamic>>> fetchRapatSaya() async {
     final url = Uri.parse("$_baseUrl/rapat/saya");
 
@@ -177,7 +175,8 @@ class RapatApiService {
     // Endpoint spesifik untuk menyetujui rapat
     final uri = Uri.parse('$_baseUrl/rapat/$idRapat/setujui');
 
-    final response = await http.post( // Menggunakan metode POST
+    final response = await http.post(
+      // Menggunakan metode POST
       uri,
       headers: {
         'Content-Type': 'application/json',
@@ -197,7 +196,8 @@ class RapatApiService {
             : 'Gagal menyetujui rapat';
         throw Exception(msg);
       } catch (_) {
-        throw Exception('Gagal menyetujui rapat (status ${response.statusCode})');
+        throw Exception(
+            'Gagal menyetujui rapat (status ${response.statusCode})');
       }
     }
   }
@@ -212,7 +212,8 @@ class RapatApiService {
     // Endpoint spesifik untuk menolak rapat
     final uri = Uri.parse('$_baseUrl/rapat/$idRapat/tolak');
 
-    final response = await http.post( // Menggunakan metode POST
+    final response = await http.post(
+      // Menggunakan metode POST
       uri,
       headers: {
         'Content-Type': 'application/json',
@@ -244,7 +245,7 @@ class RapatApiService {
     required int idRapat,
     required String judul,
     String? desc,
-    required int idCabang,   // <-- TAMBAHKAN INI DI PARAMETER
+    required int idCabang, // <-- TAMBAHKAN INI DI PARAMETER
     required int idRuangan,
     required int idPengaju,
     required int idStatus,
@@ -257,25 +258,27 @@ class RapatApiService {
 
     final uri = Uri.parse('$_baseUrl/rapat/$idRapat');
 
-    final response = await http.put(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        'judul': judul,
-        'tanggal': tanggal,
-        'id_cabang': idCabang,
-        'id_room': idRuangan,
-        'id_user_pengaju': idPengaju,
-        'id_status' : idStatus,
-        'waktu_start': waktuStart,
-        'desc': desc,
-       'waktu_end': waktuEnd,
-      }),
-    ).timeout(const Duration(seconds: 30));
+    final response = await http
+        .put(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'judul': judul,
+            'tanggal': tanggal,
+            'id_cabang': idCabang,
+            'id_room': idRuangan,
+            'id_user_pengaju': idPengaju,
+            'id_status': idStatus,
+            'waktu_start': waktuStart,
+            'desc': desc,
+            'waktu_end': waktuEnd,
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
@@ -285,7 +288,8 @@ class RapatApiService {
         final msg = err['message']?.toString() ?? 'Gagal memperbarui rapat';
         throw Exception(msg);
       } catch (_) {
-        throw Exception('Gagal memperbarui rapat (status ${response.statusCode})');
+        throw Exception(
+            'Gagal memperbarui rapat (status ${response.statusCode})');
       }
     }
   }
@@ -334,14 +338,10 @@ class RapatApiService {
     } else if (response.statusCode == 403) {
       throw Exception('Akses ditolak. Anda bukan admin.');
     } else {
-      throw Exception('Gagal memuat semua data rapat (Status: ${response.statusCode})');
+      throw Exception(
+          'Gagal memuat semua data rapat (Status: ${response.statusCode})');
     }
   }
-
-  // file: lib/Models/services/rapat_api_service.dart
-// Tambahkan method ini di dalam class RapatApiService
-
-
 // GANTI METHOD LAMA ANDA DENGAN INI
   Future<List<Map<String, dynamic>>> fetchUsers() async {
     final token = await _authService.getToken();
@@ -349,21 +349,24 @@ class RapatApiService {
       throw Exception('Tidak terautentikasi');
     }
 
-    // Endpoint sudah benar: /userPIC
-    final uri = Uri.parse('$_baseUrl/userPIC');
+    // PERBAIKAN: Menggunakan endpoint yang benar untuk mengambil semua user.
+    final uri = Uri.parse('$_baseUrl/users-by-division');
 
-    final response = await http
-        .get(uri, headers: {
+    final response = await http.get(uri, headers: {
       'Accept': 'application/json',
       'Authorization': 'Bearer $token',
-    })
-        .timeout(const Duration(seconds: 30));
+    }).timeout(const Duration(seconds: 30));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
 
-      // === PERUBAHAN UTAMA DI SINI ===
-      // Sekarang kita cek key 'users' sesuai dengan respons API Anda.
+      // Menyesuaikan dengan kemungkinan format respons dari endpoint baru.
+      // Endpoint ini kemungkinan besar mengembalikan list langsung.
+      if (data is Map && data['data'] is List) {
+        return (data['data'] as List).cast<Map<String, dynamic>>();
+      }
+
+      // PERBAIKAN: Menambahkan pengecekan untuk format respons {"users": [...]}.
       if (data is Map && data['users'] is List) {
         return (data['users'] as List).cast<Map<String, dynamic>>();
       }
@@ -376,11 +379,54 @@ class RapatApiService {
       // Memberikan pesan error yang lebih informatif jika formatnya masih salah
       throw Exception('Format data user tidak dikenali. Respons: $data');
     }
+    if (response.statusCode == 403) {
+      throw Exception(
+          'Akses ditolak. Anda tidak memiliki izin untuk melihat daftar pengguna.');
+    }
     throw Exception('Gagal memuat data user (status: ${response.statusCode})');
   }
 
+  Future<List<Map<String, dynamic>>> fetchUsersPIC() async {
+    final token = await _authService.getToken();
+    if (token == null) {
+      throw Exception('Tidak terautentikasi');
+    }
+
+    // PERBAIKAN: Menggunakan endpoint yang benar untuk mengambil semua user.
+    final uri = Uri.parse('$_baseUrl/userPIC');
+
+    final response = await http.get(uri, headers: {
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+    }).timeout(const Duration(seconds: 30));
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      // Menyesuaikan dengan kemungkinan format respons dari endpoint baru.
+      // Endpoint ini kemungkinan besar mengembalikan list langsung.
+      if (data is Map && data['data'] is List) {
+        return (data['data'] as List).cast<Map<String, dynamic>>();
+      }
+
+      // PERBAIKAN: Menambahkan pengecekan untuk format respons {"users": [...]}.
+      if (data is Map && data['users'] is List) {
+        return (data['users'] as List).cast<Map<String, dynamic>>();
+      }
+
+      // Pengecekan lain bisa dihapus atau disimpan sebagai fallback
+      if (data is List) {
+        return data.cast<Map<String, dynamic>>();
+      }
+
+      // Memberikan pesan error yang lebih informatif jika formatnya masih salah
+      throw Exception('Format data user tidak dikenali. Respons: $data');
+    }
+    if (response.statusCode == 403) {
+      throw Exception(
+          'Akses ditolak. Anda tidak memiliki izin untuk melihat daftar pengguna.');
+    }
+    throw Exception('Gagal memuat data user (status: ${response.statusCode})');
+  }
 
 }
-
-
-

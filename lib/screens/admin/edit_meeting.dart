@@ -1,3 +1,5 @@
+// lib/screens/admin/edit_meeting.dart
+
 import 'package:absen_app/Models/models/rapat.dart';
 import 'package:absen_app/Models/services/rapat_api_service.dart';
 import 'package:flutter/material.dart';
@@ -18,7 +20,7 @@ class _EditMeetingState extends State<EditMeeting> {
   // State untuk loading dan proses
   bool _isLoadingDependencies = true;
   bool _isSubmitting = false;
-  bool _isDeleting = false; // <-- State untuk tombol delete
+  bool _isDeleting = false;
   bool _isLoadingRooms = false;
 
   // Controller
@@ -30,7 +32,6 @@ class _EditMeetingState extends State<EditMeeting> {
   List<Map<String, dynamic>> _ruanganList = [];
   List<Map<String, dynamic>> _userList = [];
 
-  // <-- TAMBAHAN: Daftar status rapat (hardcoded)
   final List<Map<String, dynamic>> _statusList = [
     {'id': 1, 'name': 'Menunggu'},
     {'id': 2, 'name': 'Disetujui'},
@@ -40,10 +41,12 @@ class _EditMeetingState extends State<EditMeeting> {
   ];
 
   // State untuk nilai terpilih
-  late int _selectedCabangId;
+  // --- PERBAIKAN: Buat nullable agar tidak error saat build pertama kali ---
+  int? _selectedCabangId;
   int? _selectedRuanganId;
-  late int _selectedPengajuId;
-  late int _selectedStatusId; // <-- State untuk status terpilih
+  int? _selectedPengajuId;
+  int? _selectedStatusId;
+
   late DateTime _selectedStartTime;
   DateTime? _selectedEndTime;
   bool _isEndTimeIndefinite = false;
@@ -51,33 +54,58 @@ class _EditMeetingState extends State<EditMeeting> {
   @override
   void initState() {
     super.initState();
+    // 1. Inisialisasi controller dan state yang tidak bergantung pada data async
     _titleController = TextEditingController(text: widget.rapat.judul);
     _descriptionController = TextEditingController(text: widget.rapat.deskripsi);
-    _selectedCabangId = widget.rapat.idCabang;
-    _selectedRuanganId = widget.rapat.idRuangan;
-    _selectedPengajuId = widget.rapat.idPengaju;
-    _selectedStatusId = widget.rapat.idStatus; // <-- Inisialisasi status
     _selectedStartTime = widget.rapat.waktuMulai;
     _selectedEndTime = widget.rapat.waktuSelesai;
     _isEndTimeIndefinite = widget.rapat.waktuSelesai == null;
+
+    // 2. Panggil fungsi untuk memuat semua data async
     _loadInitialData();
   }
 
   Future<void> _loadInitialData() async {
     setState(() => _isLoadingDependencies = true);
     try {
+      // Ambil semua data dari API secara bersamaan
       final results = await Future.wait([
         _rapatApiService.fetchCabang(),
-        _rapatApiService.fetchRoomsByCabang(_selectedCabangId),
+        // Ambil ruangan berdasarkan cabang awal dari rapat yang diedit
+        _rapatApiService.fetchRoomsByCabang(widget.rapat.idCabang),
         _rapatApiService.fetchUsers(),
       ]);
-      _cabangList = results[0];
-      _ruanganList = results[1];
-      _userList = results[2];
 
-      if (!_ruanganList.any((r) => r['id_room'] == _selectedRuanganId)) {
-        _selectedRuanganId = null;
-      }
+      // 3. Setelah data API tersedia, baru isi state dan atur nilai terpilih
+      setState(() {
+        _cabangList = results[0];
+        _ruanganList = results[1];
+        _userList = results[2];
+
+        // --- PERBAIKAN UTAMA DI SINI ---
+        // Atur nilai terpilih SETELAH daftar pilihan (_cabangList, dll) terisi
+
+        // Cek apakah ID cabang dari rapat ada di daftar cabang yang baru dimuat
+        if (_cabangList.any((c) => c['id'] == widget.rapat.idCabang)) {
+          _selectedCabangId = widget.rapat.idCabang;
+        }
+
+        // Cek apakah ID ruangan dari rapat ada di daftar ruangan yang baru dimuat
+        if (_ruanganList.any((r) => r['id_room'] == widget.rapat.idRuangan)) {
+          _selectedRuanganId = widget.rapat.idRuangan;
+        }
+
+        // Cek apakah ID pengaju dari rapat ada di daftar user yang baru dimuat
+        if (_userList.any((u) => u['id_user'] == widget.rapat.idPengaju)) {
+          _selectedPengajuId = widget.rapat.idPengaju;
+        }
+
+        // Cek apakah ID status dari rapat ada di daftar status
+        if (_statusList.any((s) => s['id'] == widget.rapat.idStatus)) {
+          _selectedStatusId = widget.rapat.idStatus;
+        }
+      });
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -92,8 +120,8 @@ class _EditMeetingState extends State<EditMeeting> {
   Future<void> _fetchRoomsForSelectedCabang(int idCabang) async {
     setState(() {
       _isLoadingRooms = true;
-      _ruanganList = [];
-      _selectedRuanganId = null;
+      _ruanganList = []; // Kosongkan daftar ruangan
+      _selectedRuanganId = null; // Reset pilihan ruangan
     });
     try {
       final rooms = await _rapatApiService.fetchRoomsByCabang(idCabang);
@@ -116,6 +144,11 @@ class _EditMeetingState extends State<EditMeeting> {
     super.dispose();
   }
 
+  // ... (Sisa kode build, _updateMeeting, _deleteMeeting, dll tetap sama)
+  // ... Pastikan widget DropdownButtonFormField Anda menggunakan variabel state yang sudah nullable
+  // ... Contoh: _selectedCabangId, _selectedRuanganId, dll.
+  // ... KODE DI BAWAH INI TIDAK BERUBAH DARI SEBELUMNYA ...
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -124,7 +157,6 @@ class _EditMeetingState extends State<EditMeeting> {
         title: const Text('Edit Rapat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1565C0),
         iconTheme: const IconThemeData(color: Colors.white),
-        // <-- TAMBAHAN: Tombol Delete di AppBar
         actions: [
           IconButton(
             icon: _isDeleting
@@ -172,8 +204,7 @@ class _EditMeetingState extends State<EditMeeting> {
                       maxLines: 3,
                     ),
                     const SizedBox(height: 16),
-                    // <-- TAMBAHAN: Dropdown Status
-                    _buildDropdownField<int>(
+                    _buildDropdownField<int?>( // Tipe data diubah ke nullable
                       value: _selectedStatusId,
                       items: _statusList.map((status) {
                         return DropdownMenuItem<int>(
@@ -202,7 +233,7 @@ class _EditMeetingState extends State<EditMeeting> {
                   children: [
                     _buildSectionHeader('Logistik', Icons.business),
                     const SizedBox(height: 16),
-                    _buildDropdownField<int>(
+                    _buildDropdownField<int?>( // Tipe data diubah ke nullable
                       value: _selectedCabangId,
                       items: _cabangList.map((cabang) => DropdownMenuItem<int>(value: cabang['id'], child: Text(cabang['cabang']))).toList(),
                       onChanged: (value) {
@@ -228,7 +259,7 @@ class _EditMeetingState extends State<EditMeeting> {
                         icon: Icons.meeting_room,
                       ),
                     const SizedBox(height: 16),
-                    _buildDropdownField<int>(
+                    _buildDropdownField<int?>( // Tipe data diubah ke nullable
                       value: _selectedPengajuId,
                       items: _userList.map((user) => DropdownMenuItem<int>(value: user['id_user'], child: Text(user['name']))).toList(),
                       onChanged: (value) {
@@ -307,7 +338,6 @@ class _EditMeetingState extends State<EditMeeting> {
     );
   }
 
-  // --- HELPER WIDGETS ---
   Widget _buildSectionHeader(String title, IconData icon) {
     return Row(
       children: [
@@ -335,7 +365,7 @@ class _EditMeetingState extends State<EditMeeting> {
   Widget _buildDropdownField<T>({required T value, required List<DropdownMenuItem<T>> items, required void Function(T?) onChanged, required String label, required IconData icon}) {
     return DropdownButtonFormField<T>(
       value: value,
-      items: items.isEmpty ? null : items,
+      items: items.isEmpty ? [] : items, // PERBAIKAN: Kembalikan list kosong jika items kosong
       onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
@@ -378,7 +408,6 @@ class _EditMeetingState extends State<EditMeeting> {
     );
   }
 
-  // --- LOGIC FUNCTIONS ---
   Future<void> _selectDateTime({required bool isStartTime}) async {
     final selectedDate = await showDatePicker(context: context, initialDate: (isStartTime ? _selectedStartTime : _selectedEndTime) ?? DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(2030));
     if (selectedDate == null) return;
@@ -396,16 +425,20 @@ class _EditMeetingState extends State<EditMeeting> {
 
   void _updateMeeting() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedCabangId == null || _selectedRuanganId == null || _selectedPengajuId == null || _selectedStatusId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Harap lengkapi semua field dropdown'), backgroundColor: Colors.red));
+      return;
+    }
     setState(() => _isSubmitting = true);
     try {
       await _rapatApiService.updateRapat(
         idRapat: widget.rapat.idRapat,
         judul: _titleController.text.trim(),
         desc: _descriptionController.text.trim(),
-        idCabang: _selectedCabangId,
+        idCabang: _selectedCabangId!,
         idRuangan: _selectedRuanganId!,
-        idPengaju: _selectedPengajuId,
-        idStatus: _selectedStatusId, // <-- Kirim status ID yang baru
+        idPengaju: _selectedPengajuId!,
+        idStatus: _selectedStatusId!,
         tanggal: DateFormat('yyyy-MM-dd').format(_selectedStartTime),
         waktuStart: DateFormat('HH:mm').format(_selectedStartTime),
         waktuEnd: _selectedEndTime != null ? DateFormat('HH:mm').format(_selectedEndTime!) : null,
@@ -423,7 +456,6 @@ class _EditMeetingState extends State<EditMeeting> {
     }
   }
 
-  // <-- FUNGSI BARU UNTUK DELETE -->
   void _showDeleteConfirmation() {
     showDialog(
       context: context,
@@ -454,7 +486,6 @@ class _EditMeetingState extends State<EditMeeting> {
       await _rapatApiService.deleteRapat(widget.rapat.idRapat);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rapat berhasil dihapus 🗑️'), backgroundColor: Colors.orange));
-        // Pop dua kali: sekali untuk halaman edit, sekali lagi agar dashboard refresh
         Navigator.of(context).pop(true);
       }
     } catch (e) {
