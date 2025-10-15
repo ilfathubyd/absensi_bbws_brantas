@@ -21,7 +21,8 @@ class RapatApiService {
     required String waktuStart, // HH:mm
     String? waktuEnd, // HH:mm or null
     String? desc,
-    List<int>? userIds, // <-- TAMBAHKAN INI
+    int? idUserPengaju, // <-- PERUBAHAN: Tambahkan parameter untuk pengaju
+    List<int>? divisions, // <-- Diubah menjadi 'divisions'
   }) async {
     final token = await _authService.getToken();
     if (token == null) {
@@ -46,8 +47,12 @@ class RapatApiService {
             'waktu_start': waktuStart,
             if (waktuEnd != null) 'waktu_end': waktuEnd,
             if (desc != null) 'desc': desc,
-            if (userIds != null && userIds.isNotEmpty)
-              'users': userIds, // <-- TAMBAHKAN INI
+            if (idUserPengaju != null)
+              'id_user_pengaju':
+                  idUserPengaju, // <-- PERUBAHAN: Kirim ID pengaju
+            // PERBAIKAN: Pastikan key adalah 'division_ids' sesuai backend
+            if (divisions != null && divisions.isNotEmpty)
+              'division_ids': divisions,
           }),
         )
         .timeout(const Duration(seconds: 30));
@@ -150,6 +155,7 @@ class RapatApiService {
     throw Exception('Gagal memuat rapat');
   }
 
+  // PERBAIKAN: Method ini duplikat dan tidak mengirim token. Sebaiknya dihapus dan gunakan fetchRapatByUser.
   Future<List<Map<String, dynamic>>> fetchRapatSaya() async {
     final url = Uri.parse("$_baseUrl/rapat/saya");
 
@@ -245,13 +251,14 @@ class RapatApiService {
     required int idRapat,
     required String judul,
     String? desc,
-    required int idCabang, // <-- TAMBAHKAN INI DI PARAMETER
+    required int idCabang,
     required int idRuangan,
-    required int idPengaju,
+    int? idPengaju, // Dibuat opsional dan tidak akan dikirim
     required int idStatus,
     required String tanggal,
     required String waktuStart,
     String? waktuEnd,
+    List<int>? divisionIds,
   }) async {
     final token = await _authService.getToken();
     if (token == null) throw Exception('Tidak terautentikasi');
@@ -266,17 +273,20 @@ class RapatApiService {
             'Accept': 'application/json',
             'Authorization': 'Bearer $token',
           },
+          // --- BAGIAN YANG DIPERBAIKI ---
           body: jsonEncode({
             'judul': judul,
             'tanggal': tanggal,
             'id_cabang': idCabang,
-            'id_room': idRuangan,
-            'id_user_pengaju': idPengaju,
+            'id_room': idRuangan, // <-- HANYA SATU KALI
             'id_status': idStatus,
             'waktu_start': waktuStart,
             'desc': desc,
             'waktu_end': waktuEnd,
+            if (divisionIds != null) 'division_ids': divisionIds,
+            // 'id_user_pengaju' dihapus karena tidak seharusnya diubah
           }),
+          // -----------------------------
         )
         .timeout(const Duration(seconds: 30));
 
@@ -342,6 +352,7 @@ class RapatApiService {
           'Gagal memuat semua data rapat (Status: ${response.statusCode})');
     }
   }
+
 // GANTI METHOD LAMA ANDA DENGAN INI
   Future<List<Map<String, dynamic>>> fetchUsers() async {
     final token = await _authService.getToken();
@@ -350,7 +361,7 @@ class RapatApiService {
     }
 
     // PERBAIKAN: Menggunakan endpoint yang benar untuk mengambil semua user.
-    final uri = Uri.parse('$_baseUrl/users-by-division');
+    final uri = Uri.parse('$_baseUrl/pic/get-division');
 
     final response = await http.get(uri, headers: {
       'Accept': 'application/json',
@@ -367,8 +378,8 @@ class RapatApiService {
       }
 
       // PERBAIKAN: Menambahkan pengecekan untuk format respons {"users": [...]}.
-      if (data is Map && data['users'] is List) {
-        return (data['users'] as List).cast<Map<String, dynamic>>();
+      if (data is Map && data['divisions'] is List) {
+        return (data['divisions'] as List).cast<Map<String, dynamic>>();
       }
 
       // Pengecekan lain bisa dihapus atau disimpan sebagai fallback
@@ -428,5 +439,4 @@ class RapatApiService {
     }
     throw Exception('Gagal memuat data user (status: ${response.statusCode})');
   }
-
 }

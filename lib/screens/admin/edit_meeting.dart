@@ -2,6 +2,7 @@
 
 import 'package:absen_app/Models/models/rapat.dart';
 import 'package:absen_app/Models/services/rapat_api_service.dart';
+import 'package:absen_app/Models/services/participant_selector_page.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -30,14 +31,15 @@ class _EditMeetingState extends State<EditMeeting> {
   // State untuk data dropdown
   List<Map<String, dynamic>> _cabangList = [];
   List<Map<String, dynamic>> _ruanganList = [];
-  List<Map<String, dynamic>> _userList = [];
+  List<Map<String, dynamic>> _userList = []; // Untuk pengaju
+  List<Map<String, dynamic>> _divisionList = []; // Untuk peserta
 
   final List<Map<String, dynamic>> _statusList = [
     {'id': 1, 'name': 'Menunggu'},
     {'id': 2, 'name': 'Disetujui'},
-    {'id': 3, 'name': 'Berlangsung'},
-    {'id': 4, 'name': 'Selesai'},
-    {'id': 5, 'name': 'Ditolak'},
+    {'id': 3, 'name': 'Ditolak'},
+    {'id': 4, 'name': 'Berlangsung'},
+    {'id': 5, 'name': 'Selesai'},
   ];
 
   // State untuk nilai terpilih
@@ -46,6 +48,7 @@ class _EditMeetingState extends State<EditMeeting> {
   int? _selectedRuanganId;
   int? _selectedPengajuId;
   int? _selectedStatusId;
+  List<Map<String, dynamic>> _selectedDivisions = [];
 
   late DateTime _selectedStartTime;
   DateTime? _selectedEndTime;
@@ -56,10 +59,18 @@ class _EditMeetingState extends State<EditMeeting> {
     super.initState();
     // 1. Inisialisasi controller dan state yang tidak bergantung pada data async
     _titleController = TextEditingController(text: widget.rapat.judul);
-    _descriptionController = TextEditingController(text: widget.rapat.deskripsi);
+    _descriptionController =
+        TextEditingController(text: widget.rapat.deskripsi);
     _selectedStartTime = widget.rapat.waktuMulai;
     _selectedEndTime = widget.rapat.waktuSelesai;
     _isEndTimeIndefinite = widget.rapat.waktuSelesai == null;
+
+    // PERBAIKAN: Inisialisasi status berdasarkan nama, bukan ID, agar lebih fleksibel.
+    final initialStatus = _statusList.firstWhere(
+      (s) => s['name'] == widget.rapat.statusRapat,
+      orElse: () => {'id': 1}, // Default ke 'Menunggu' jika tidak ditemukan
+    );
+    _selectedStatusId = initialStatus['id'];
 
     // 2. Panggil fungsi untuk memuat semua data async
     _loadInitialData();
@@ -72,13 +83,15 @@ class _EditMeetingState extends State<EditMeeting> {
       final results = await Future.wait([
         _rapatApiService.fetchCabang(),
         // Ambil ruangan berdasarkan cabang awal dari rapat yang diedit
-        _rapatApiService.fetchRoomsByCabang(widget.rapat.idCabang),
-        _rapatApiService.fetchUsers(),
+        _rapatApiService
+            .fetchRoomsByCabang(widget.rapat.idCabang), // fetch rooms
+        _rapatApiService.fetchUsersPIC(), // fetch PIC users
+        _rapatApiService.fetchUsers(), // fetch divisions
       ]);
 
       // 3. Setelah data API tersedia, baru isi state dan atur nilai terpilih
       setState(() {
-        _cabangList = results[0];
+        _cabangList = results[0] as List<Map<String, dynamic>>;
         _ruanganList = results[1];
         _userList = results[2];
 
@@ -96,20 +109,25 @@ class _EditMeetingState extends State<EditMeeting> {
         }
 
         // Cek apakah ID pengaju dari rapat ada di daftar user yang baru dimuat
-        if (_userList.any((u) => u['id_user'] == widget.rapat.idPengaju)) {
+        if (_userList.any((u) =>
+            u['id_user'] == widget.rapat.idPengaju ||
+            u['id'] == widget.rapat.idPengaju)) {
           _selectedPengajuId = widget.rapat.idPengaju;
         }
 
-        // Cek apakah ID status dari rapat ada di daftar status
-        if (_statusList.any((s) => s['id'] == widget.rapat.idStatus)) {
-          _selectedStatusId = widget.rapat.idStatus;
-        }
+        // PERBAIKAN: Inisialisasi peserta (divisi) yang sudah terpilih
+        _divisionList = results[3];
+        _selectedDivisions = _divisionList
+            .where((div) => widget.rapat.divisions
+                .any((d) => d['id_division'] == div['id']))
+            .toList();
       });
-
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal memuat data awal: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Gagal memuat data awal: $e'),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -129,7 +147,9 @@ class _EditMeetingState extends State<EditMeeting> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal memuat ruangan: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Gagal memuat ruangan: $e'),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -144,6 +164,28 @@ class _EditMeetingState extends State<EditMeeting> {
     super.dispose();
   }
 
+  // PERBAIKAN: Tambahkan fungsi untuk memilih peserta
+  Future<void> _selectParticipants() async {
+    final result = await Navigator.push<List<Map<String, dynamic>>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ItemSelectorPage<Map<String, dynamic>>(
+          pageTitle: 'Pilih Peserta (Divisi)',
+          allItems: _divisionList,
+          initialSelection: _selectedDivisions,
+          itemTitleBuilder: (item) => (item['name'] ?? 'Tanpa Nama').toString(),
+          itemSubtitleBuilder: (item) => (item['description'] ?? '').toString(),
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedDivisions = result;
+      });
+    }
+  }
+
   // ... (Sisa kode build, _updateMeeting, _deleteMeeting, dll tetap sama)
   // ... Pastikan widget DropdownButtonFormField Anda menggunakan variabel state yang sudah nullable
   // ... Contoh: _selectedCabangId, _selectedRuanganId, dll.
@@ -154,13 +196,18 @@ class _EditMeetingState extends State<EditMeeting> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Edit Rapat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('Edit Rapat',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1565C0),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
             icon: _isDeleting
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.delete_outline),
             onPressed: _isDeleting ? null : _showDeleteConfirmation,
           ),
@@ -182,7 +229,8 @@ class _EditMeetingState extends State<EditMeeting> {
           children: [
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -194,7 +242,9 @@ class _EditMeetingState extends State<EditMeeting> {
                       controller: _titleController,
                       label: 'Judul Rapat',
                       icon: Icons.title,
-                      validator: (value) => value == null || value.isEmpty ? 'Judul tidak boleh kosong' : null,
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Judul tidak boleh kosong'
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     _buildTextFormField(
@@ -204,7 +254,8 @@ class _EditMeetingState extends State<EditMeeting> {
                       maxLines: 3,
                     ),
                     const SizedBox(height: 16),
-                    _buildDropdownField<int?>( // Tipe data diubah ke nullable
+                    _buildDropdownField<int?>(
+                      // Tipe data diubah ke nullable
                       value: _selectedStatusId,
                       items: _statusList.map((status) {
                         return DropdownMenuItem<int>(
@@ -213,7 +264,8 @@ class _EditMeetingState extends State<EditMeeting> {
                         );
                       }).toList(),
                       onChanged: (value) {
-                        if (value != null) setState(() => _selectedStatusId = value);
+                        if (value != null)
+                          setState(() => _selectedStatusId = value);
                       },
                       label: 'Status Rapat',
                       icon: Icons.flag,
@@ -225,7 +277,8 @@ class _EditMeetingState extends State<EditMeeting> {
             const SizedBox(height: 16),
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -233,9 +286,19 @@ class _EditMeetingState extends State<EditMeeting> {
                   children: [
                     _buildSectionHeader('Logistik', Icons.business),
                     const SizedBox(height: 16),
-                    _buildDropdownField<int?>( // Tipe data diubah ke nullable
+                    _buildDropdownField<int?>(
+                      // Tipe data diubah ke nullable
                       value: _selectedCabangId,
-                      items: _cabangList.map((cabang) => DropdownMenuItem<int>(value: cabang['id'], child: Text(cabang['cabang']))).toList(),
+                      items: _cabangList.map((cabang) {
+                        final id = cabang['id'] as int;
+                        // PERBAIKAN: Menangani jika nama cabang null atau key berbeda
+                        final name = (cabang['cabang'] ??
+                                cabang['nama'] ??
+                                'Cabang Tanpa Nama')
+                            .toString();
+                        return DropdownMenuItem<int>(
+                            value: id, child: Text(name));
+                      }).toList(),
                       onChanged: (value) {
                         if (value != null && value != _selectedCabangId) {
                           setState(() => _selectedCabangId = value);
@@ -247,23 +310,43 @@ class _EditMeetingState extends State<EditMeeting> {
                     ),
                     const SizedBox(height: 16),
                     if (_isLoadingRooms)
-                      const Padding(padding: EdgeInsets.symmetric(vertical: 24.0), child: Center(child: CircularProgressIndicator()))
+                      const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24.0),
+                          child: Center(child: CircularProgressIndicator()))
                     else
                       _buildDropdownField<int?>(
                         value: _selectedRuanganId,
-                        items: _ruanganList.map((ruangan) => DropdownMenuItem<int>(value: ruangan['id_room'], child: Text(ruangan['room']))).toList(),
+                        items: _ruanganList.map((ruangan) {
+                          final id = ruangan['id_room'] as int;
+                          // PERBAIKAN: Menangani jika nama ruangan null
+                          final name = (ruangan['room'] ?? 'Ruangan Tanpa Nama')
+                              .toString();
+                          return DropdownMenuItem<int>(
+                              value: id, child: Text(name));
+                        }).toList(),
                         onChanged: (value) {
-                          if (value != null) setState(() => _selectedRuanganId = value);
+                          if (value != null)
+                            setState(() => _selectedRuanganId = value);
                         },
                         label: 'Pilih Ruangan',
                         icon: Icons.meeting_room,
                       ),
                     const SizedBox(height: 16),
-                    _buildDropdownField<int?>( // Tipe data diubah ke nullable
+                    _buildDropdownField<int?>(
+                      // Tipe data diubah ke nullable
                       value: _selectedPengajuId,
-                      items: _userList.map((user) => DropdownMenuItem<int>(value: user['id_user'], child: Text(user['name']))).toList(),
+                      items: _userList.map((user) {
+                        // Pastikan key 'id_user' ada
+                        final id = user['id_user'] as int;
+                        // PERBAIKAN: Menangani jika nama user null
+                        final name =
+                            (user['name'] ?? 'User Tanpa Nama').toString();
+                        return DropdownMenuItem<int>(
+                            value: id, child: Text(name));
+                      }).toList(),
                       onChanged: (value) {
-                        if (value != null) setState(() => _selectedPengajuId = value);
+                        if (value != null)
+                          setState(() => _selectedPengajuId = value);
                       },
                       label: 'Penanggung Jawab',
                       icon: Icons.person,
@@ -275,7 +358,27 @@ class _EditMeetingState extends State<EditMeeting> {
             const SizedBox(height: 16),
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0), // Mengurangi padding
+                child: ListTile(
+                  leading: const Icon(Icons.group, color: Color(0xFF1565C0)),
+                  title: const Text('Peserta Rapat (Divisi)'),
+                  subtitle: Text('${_selectedDivisions.length} divisi dipilih'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _selectParticipants,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -290,7 +393,8 @@ class _EditMeetingState extends State<EditMeeting> {
                     ),
                     const SizedBox(height: 8),
                     CheckboxListTile(
-                      title: const Text('Waktu selesai tidak menentu', style: TextStyle(fontSize: 15)),
+                      title: const Text('Waktu selesai tidak menentu',
+                          style: TextStyle(fontSize: 15)),
                       value: _isEndTimeIndefinite,
                       onChanged: (bool? newValue) {
                         setState(() {
@@ -322,14 +426,24 @@ class _EditMeetingState extends State<EditMeeting> {
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: _isSubmitting ? null : _updateMeeting,
-              icon: _isSubmitting ? const SizedBox() : const Icon(Icons.save, color: Colors.white),
+              icon: _isSubmitting
+                  ? const SizedBox()
+                  : const Icon(Icons.save, color: Colors.white),
               label: _isSubmitting
-                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white))
-                  : const Text('Update Rapat', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(color: Colors.white))
+                  : const Text('Update Rapat',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1E88E5),
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -343,12 +457,21 @@ class _EditMeetingState extends State<EditMeeting> {
       children: [
         Icon(icon, color: const Color(0xFF1565C0)),
         const SizedBox(width: 8),
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1565C0))),
+        Text(title,
+            style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1565C0))),
       ],
     );
   }
 
-  Widget _buildTextFormField({required TextEditingController controller, required String label, required IconData icon, int maxLines = 1, String? Function(String?)? validator}) {
+  Widget _buildTextFormField(
+      {required TextEditingController controller,
+      required String label,
+      required IconData icon,
+      int maxLines = 1,
+      String? Function(String?)? validator}) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
@@ -356,16 +479,25 @@ class _EditMeetingState extends State<EditMeeting> {
         labelText: label,
         prefixIcon: Icon(icon, color: Colors.grey[600]),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2)),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2)),
       ),
       validator: validator,
     );
   }
 
-  Widget _buildDropdownField<T>({required T value, required List<DropdownMenuItem<T>> items, required void Function(T?) onChanged, required String label, required IconData icon}) {
+  Widget _buildDropdownField<T>(
+      {required T value,
+      required List<DropdownMenuItem<T>> items,
+      required void Function(T?) onChanged,
+      required String label,
+      required IconData icon}) {
     return DropdownButtonFormField<T>(
       value: value,
-      items: items.isEmpty ? [] : items, // PERBAIKAN: Kembalikan list kosong jika items kosong
+      items: items.isEmpty
+          ? []
+          : items, // PERBAIKAN: Kembalikan list kosong jika items kosong
       onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
@@ -377,7 +509,10 @@ class _EditMeetingState extends State<EditMeeting> {
     );
   }
 
-  Widget _buildDateTimePicker({required String label, required DateTime? dateTime, required VoidCallback onTap}) {
+  Widget _buildDateTimePicker(
+      {required String label,
+      required DateTime? dateTime,
+      required VoidCallback onTap}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -388,15 +523,22 @@ class _EditMeetingState extends State<EditMeeting> {
           borderRadius: BorderRadius.circular(8),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8)),
             child: Row(
               children: [
                 const Icon(Icons.access_time, color: Color(0xFF1565C0)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    dateTime != null ? DateFormat('EEEE, dd MMM yyyy HH:mm', 'id_ID').format(dateTime) : 'Pilih waktu...',
-                    style: TextStyle(fontSize: 16, color: dateTime != null ? Colors.black87 : Colors.grey),
+                    dateTime != null
+                        ? DateFormat('EEEE, dd MMM yyyy HH:mm', 'id_ID')
+                            .format(dateTime)
+                        : 'Pilih waktu...',
+                    style: TextStyle(
+                        fontSize: 16,
+                        color: dateTime != null ? Colors.black87 : Colors.grey),
                   ),
                 ),
                 const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
@@ -409,11 +551,21 @@ class _EditMeetingState extends State<EditMeeting> {
   }
 
   Future<void> _selectDateTime({required bool isStartTime}) async {
-    final selectedDate = await showDatePicker(context: context, initialDate: (isStartTime ? _selectedStartTime : _selectedEndTime) ?? DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(2030));
+    final selectedDate = await showDatePicker(
+        context: context,
+        initialDate: (isStartTime ? _selectedStartTime : _selectedEndTime) ??
+            DateTime.now(),
+        firstDate: DateTime(2020),
+        lastDate: DateTime(2030));
     if (selectedDate == null) return;
-    final selectedTime = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime((isStartTime ? _selectedStartTime : _selectedEndTime) ?? DateTime.now()));
+    final selectedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(
+            (isStartTime ? _selectedStartTime : _selectedEndTime) ??
+                DateTime.now()));
     if (selectedTime == null) return;
-    final finalDateTime = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
+    final finalDateTime = DateTime(selectedDate.year, selectedDate.month,
+        selectedDate.day, selectedTime.hour, selectedTime.minute);
     setState(() {
       if (isStartTime) {
         _selectedStartTime = finalDateTime;
@@ -425,10 +577,19 @@ class _EditMeetingState extends State<EditMeeting> {
 
   void _updateMeeting() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedCabangId == null || _selectedRuanganId == null || _selectedPengajuId == null || _selectedStatusId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Harap lengkapi semua field dropdown'), backgroundColor: Colors.red));
+    if (_selectedCabangId == null ||
+        _selectedRuanganId == null ||
+        _selectedPengajuId == null ||
+        _selectedStatusId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Harap lengkapi semua field dropdown'),
+          backgroundColor: Colors.red));
       return;
     }
+    // PERBAIKAN: Ambil ID dari divisi yang dipilih
+    final divisionIds =
+        _selectedDivisions.map((div) => div['id'] as int).toList();
+
     setState(() => _isSubmitting = true);
     try {
       await _rapatApiService.updateRapat(
@@ -437,19 +598,26 @@ class _EditMeetingState extends State<EditMeeting> {
         desc: _descriptionController.text.trim(),
         idCabang: _selectedCabangId!,
         idRuangan: _selectedRuanganId!,
-        idPengaju: _selectedPengajuId!,
+        idPengaju: _selectedPengajuId, // Kirim ID pengaju jika diubah
         idStatus: _selectedStatusId!,
         tanggal: DateFormat('yyyy-MM-dd').format(_selectedStartTime),
         waktuStart: DateFormat('HH:mm').format(_selectedStartTime),
-        waktuEnd: _selectedEndTime != null ? DateFormat('HH:mm').format(_selectedEndTime!) : null,
+        waktuEnd: _selectedEndTime != null
+            ? DateFormat('HH:mm').format(_selectedEndTime!)
+            : null,
+        divisionIds: divisionIds, // Kirim daftar ID divisi
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rapat berhasil diperbarui ✅'), backgroundColor: Colors.green));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Rapat berhasil diperbarui ✅'),
+            backgroundColor: Colors.green));
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal memperbarui rapat: ${e.toString()}'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Gagal memperbarui rapat: ${e.toString()}'),
+            backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -461,7 +629,8 @@ class _EditMeetingState extends State<EditMeeting> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Konfirmasi Hapus'),
-        content: Text('Apakah Anda yakin ingin menghapus rapat "${widget.rapat.judul}"? Tindakan ini tidak dapat diurungkan.'),
+        content: Text(
+            'Apakah Anda yakin ingin menghapus rapat "${widget.rapat.judul}"? Tindakan ini tidak dapat diurungkan.'),
         actions: [
           TextButton(
             child: const Text('Batal'),
@@ -485,12 +654,16 @@ class _EditMeetingState extends State<EditMeeting> {
     try {
       await _rapatApiService.deleteRapat(widget.rapat.idRapat);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rapat berhasil dihapus 🗑️'), backgroundColor: Colors.orange));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Rapat berhasil dihapus 🗑️'),
+            backgroundColor: Colors.orange));
         Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal menghapus rapat: ${e.toString()}'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Gagal menghapus rapat: ${e.toString()}'),
+            backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _isDeleting = false);

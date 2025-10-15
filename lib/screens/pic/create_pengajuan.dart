@@ -1,3 +1,4 @@
+import 'package:absen_app/Models/models/division.dart';
 import 'package:absen_app/Models/models/user.dart';
 import 'package:absen_app/Models/services/participant_selector_page.dart';
 import 'package:absen_app/Models/services/rapat_api_service.dart';
@@ -27,8 +28,8 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
   List<Map<String, dynamic>> _cabangs = [];
   List<Map<String, dynamic>> _rooms =
       []; // Akan berisi ruangan untuk cabang yang dipilih
-  List<AppUser> _allUsers = [];
-  List<AppUser> _selectedUsers = [];
+  List<Division> _allDivisions = [];
+  List<Division> _selectedDivisions = [];
 
   // Variabel State untuk Kontrol UI
   bool _loadingInitialData = true;
@@ -62,12 +63,13 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
       final results = await Future.wait([
         _loadCurrentUser(),
         _loadCabang(),
-        _loadUsers(),
+        _loadDivisions(),
       ]);
-      final usersData = results[2] as List<Map<String, dynamic>>;
+      final divisionsData = results[2] as List<Map<String, dynamic>>;
       if (mounted) {
         setState(() {
-          _allUsers = usersData.map((json) => AppUser.fromJson(json)).toList();
+          _allDivisions =
+              divisionsData.map((json) => Division.fromJson(json)).toList();
         });
       }
     } catch (e) {
@@ -106,11 +108,11 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _loadUsers() async {
+  Future<List<Map<String, dynamic>>> _loadDivisions() async {
     try {
       return await _rapatApiService.fetchUsers();
     } catch (e) {
-      print("Gagal memuat data user: $e");
+      print("Gagal memuat data divisi: $e");
       rethrow;
     }
   }
@@ -289,7 +291,8 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
     });
 
     try {
-      final List<int> userIds = _selectedUsers.map((u) => u.id_user).toList();
+      final List<int> divisionIds =
+          _selectedDivisions.map((d) => d.id).toList();
       await _rapatApiService.createRapat(
         idCabang: _selectedCabangId!,
         idRoom: _selectedRoomId!,
@@ -300,7 +303,8 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
         desc: _descriptionCtrl.text.trim().isEmpty
             ? null
             : _descriptionCtrl.text.trim(),
-        userIds: userIds,
+        divisions:
+            divisionIds, // Mengirim ID divisi dengan parameter yang benar ('divisions')
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -370,15 +374,21 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
       return;
     }
 
-    final selected = await Navigator.push<List<AppUser>>(
+    final selected = await Navigator.push<List<Division>>(
       context,
       MaterialPageRoute(
-        builder: (_) => ParticipantSelectorPage(
-            allUsers: _allUsers, initialSelection: _selectedUsers),
+        builder: (_) => ItemSelectorPage<Division>(
+          allItems: _allDivisions,
+          initialSelection: _selectedDivisions,
+          pageTitle: 'Pilih Divisi',
+          searchHint: 'Cari nama divisi...',
+          itemTitleBuilder: (division) => division.name,
+          itemSubtitleBuilder: (division) => 'ID: ${division.id}',
+        ),
       ),
     );
 
-    if (selected != null) setState(() => _selectedUsers = selected);
+    if (selected != null) setState(() => _selectedDivisions = selected);
   }
 
   @override
@@ -608,14 +618,15 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
 
                             // Pemilihan Peserta
                             ListTile(
+                              // Diubah menjadi pemilihan divisi
                               contentPadding: EdgeInsets.zero,
                               leading: const Icon(Icons.group_add,
                                   color: Color(0xFF4CAF50), size: 28),
-                              title: const Text('Peserta Rapat',
+                              title: const Text('Divisi Peserta',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
                               subtitle: Text(
-                                  '${_selectedUsers.length} orang dipilih'),
+                                  '${_selectedDivisions.length} divisi dipilih'),
                               trailing: const Icon(Icons.chevron_right),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -623,15 +634,15 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
                               ),
                               onTap: _openParticipantSelector,
                             ),
-                            if (_selectedUsers.isNotEmpty)
+                            if (_selectedDivisions.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(top: 8.0),
                                 child: Wrap(
                                   spacing: 8.0,
                                   runSpacing: 4.0,
-                                  children: _selectedUsers
-                                      .map((user) =>
-                                          Chip(label: Text(user.name)))
+                                  children: _selectedDivisions
+                                      .map((division) =>
+                                          Chip(label: Text(division.name)))
                                       .toList(),
                                 ),
                               ),

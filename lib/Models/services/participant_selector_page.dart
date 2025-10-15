@@ -1,50 +1,43 @@
-import 'package:absen_app/Models/models/user.dart';
 import 'package:flutter/material.dart';
 
-class ParticipantSelectorPage extends StatefulWidget {
-  final List<AppUser> allUsers;
-  final List<AppUser> initialSelection;
+class ItemSelectorPage<T> extends StatefulWidget {
+  final List<T> allItems;
+  final List<T> initialSelection;
+  final String Function(T) itemTitleBuilder;
+  final String? Function(T) itemSubtitleBuilder;
+  final String pageTitle;
+  final String searchHint;
 
-  const ParticipantSelectorPage({
+  const ItemSelectorPage({
     super.key,
-    required this.allUsers,
+    required this.allItems,
     required this.initialSelection,
+    required this.itemTitleBuilder,
+    required this.itemSubtitleBuilder,
+    required this.pageTitle,
+    this.searchHint = 'Cari...',
   });
 
   @override
-  State<ParticipantSelectorPage> createState() =>
-      _ParticipantSelectorPageState();
+  State<ItemSelectorPage<T>> createState() => _ItemSelectorPageState<T>();
 }
 
-class _ParticipantSelectorPageState extends State<ParticipantSelectorPage> {
-  late List<AppUser> _selectedUsers;
-  List<AppUser> _filteredUsers = [];
-  List<String> _divisions = [];
-  String? _selectedDivision;
+class _ItemSelectorPageState<T> extends State<ItemSelectorPage<T>> {
+  late List<T> _selectedItems;
+  List<T> _filteredItems = [];
   final _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    // Salin initial selection agar tidak mengubah list aslinya
-    _selectedUsers = List.from(widget.initialSelection);
-    _filteredUsers = widget.allUsers;
-
-    // Ekstrak semua divisi unik dari daftar user
-    _divisions = widget.allUsers
-        .map((user) => user.division)
-        .where((division) => division != null) // 1. Filter null dulu
-        .cast<String>() // 2. Konversi tipe ke String non-nullable
-        .where((division) => division.isNotEmpty) // 3. Baru filter string kosong
-        .toSet()
-        .toList()
-      ..sort(); // Urutkan divisi berdasarkan abjad
-
+    _selectedItems = List.from(widget.initialSelection);
+    _filteredItems = widget.allItems;
     _searchController.addListener(_applyFilters);
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_applyFilters);
     _searchController.dispose();
     super.dispose();
   }
@@ -52,21 +45,22 @@ class _ParticipantSelectorPageState extends State<ParticipantSelectorPage> {
   void _applyFilters() {
     String query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredUsers = widget.allUsers.where((user) {
-        final nameMatch = user.name.toLowerCase().contains(query);
-        final divisionMatch =
-            _selectedDivision == null || user.division == _selectedDivision;
-        return nameMatch && divisionMatch;
+      _filteredItems = widget.allItems.where((item) {
+        final titleMatch =
+            widget.itemTitleBuilder(item).toLowerCase().contains(query);
+        return titleMatch;
       }).toList();
     });
   }
 
-  void _onUserSelected(AppUser user, bool isSelected) {
+  void _onItemSelected(T item, bool isSelected) {
     setState(() {
       if (isSelected) {
-        _selectedUsers.add(user);
+        if (!_selectedItems.contains(item)) {
+          _selectedItems.add(item);
+        }
       } else {
-        _selectedUsers.removeWhere((u) => u.id_user == user.id_user);
+        _selectedItems.remove(item);
       }
     });
   }
@@ -75,95 +69,58 @@ class _ParticipantSelectorPageState extends State<ParticipantSelectorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Pilih Peserta (${_selectedUsers.length})'),
+        title: Text('${widget.pageTitle} (${_selectedItems.length})'),
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
             onPressed: () {
-              Navigator.pop(context, _selectedUsers);
+              Navigator.pop(context, _selectedItems);
             },
           ),
         ],
       ),
       body: Column(
         children: [
+          // Search Bar
           Padding(
             padding: const EdgeInsets.all(12.0),
-            child: Column(
-              children: [
-                // Search Bar
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Cari nama peserta...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.grey),
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                  ),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: widget.searchHint,
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.grey),
                 ),
-                const SizedBox(height: 12),
-                // Filter Divisi
-                if (_divisions.isNotEmpty)
-                  DropdownButtonFormField<String>(
-                    value: _selectedDivision,
-                    hint: const Text('Filter berdasarkan divisi'),
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                    ),
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('Semua Divisi',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      ..._divisions.map((division) {
-                        return DropdownMenuItem<String>(
-                          value: division,
-                          child: Text(division),
-                        );
-                      }).toList(),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedDivision = value;
-                        _applyFilters();
-                      });
-                    },
-                  ),
-              ],
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+              ),
             ),
           ),
           // Daftar User
           Expanded(
             child: ListView.builder(
-              itemCount: _filteredUsers.length,
+              itemCount: _filteredItems.length,
               itemBuilder: (context, index) {
-                final user = _filteredUsers[index];
-                final isSelected =
-                    _selectedUsers.any((u) => u.id_user == user.id_user);
+                final item = _filteredItems[index];
+                final isSelected = _selectedItems.contains(item);
+                final title = widget.itemTitleBuilder(item);
+                final subtitle = widget.itemSubtitleBuilder(item);
 
                 return CheckboxListTile(
-                  title: Text(user.name),
-                  subtitle: Text(user.division ?? 'Tanpa Divisi'),
+                  title: Text(title),
+                  subtitle: subtitle != null ? Text(subtitle) : null,
                   value: isSelected,
                   onChanged: (bool? value) {
                     if (value != null) {
-                      _onUserSelected(user, value);
+                      _onItemSelected(item, value);
                     }
                   },
                   secondary: CircleAvatar(
-                    child: Text(user.name.isNotEmpty
-                        ? user.name[0].toUpperCase()
-                        : '?'),
+                    child:
+                        Text(title.isNotEmpty ? title[0].toUpperCase() : '?'),
                   ),
                 );
               },
@@ -176,7 +133,7 @@ class _ParticipantSelectorPageState extends State<ParticipantSelectorPage> {
         padding: const EdgeInsets.all(16.0),
         child: ElevatedButton.icon(
           icon: const Icon(Icons.check_circle_outline),
-          label: Text('Simpan Pilihan (${_selectedUsers.length})'),
+          label: Text('Simpan Pilihan (${_selectedItems.length})'),
           style: ElevatedButton.styleFrom(
             backgroundColor: Theme.of(context).primaryColor,
             foregroundColor: Colors.white,
@@ -188,7 +145,7 @@ class _ParticipantSelectorPageState extends State<ParticipantSelectorPage> {
             ),
           ),
           onPressed: () {
-            Navigator.pop(context, _selectedUsers);
+            Navigator.pop(context, _selectedItems);
           },
         ),
       ),

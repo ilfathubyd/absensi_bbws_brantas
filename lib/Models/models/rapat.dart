@@ -21,6 +21,9 @@ class Rapat {
   final int idStatus;
   final String statusRapat;
 
+  // PERBAIKAN: Tambahkan properti untuk menampung data divisi
+  final List<Map<String, dynamic>> divisions;
+
   Rapat({
     required this.idRapat,
     required this.judul,
@@ -35,6 +38,7 @@ class Rapat {
     required this.namaPengaju,
     required this.idStatus,
     required this.statusRapat,
+    this.divisions = const [], // Beri nilai default list kosong
   });
 
   // --- INI BAGIAN PALING PENTING: FACTORY fromJson ---
@@ -83,14 +87,23 @@ class Rapat {
       // PERBAIKAN: Tambahkan `?? 0` untuk memberikan nilai default jika null
       idStatus: json['id_status'] ?? 0,
       statusRapat: json['status']?['status_rapat'] ?? 'Status Tidak Diketahui',
+
+      // PERBAIKAN: Parsing data 'divisions' dari JSON.
+      // Pastikan data yang masuk adalah List dan konversi dengan aman.
+      divisions: json['divisions'] is List
+          ? List<Map<String, dynamic>>.from(json['divisions'])
+          : [],
     );
   }
 
   // Helper getter untuk memformat tanggal & waktu untuk ditampilkan di UI
-  String get tanggalFormatted => DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(waktuMulai);
-  String get waktuMulaiFormatted => DateFormat('HH:mm', 'id_ID').format(waktuMulai);
-  String get waktuSelesaiFormatted => waktuSelesai != null ? DateFormat('HH:mm', 'id_ID').format(waktuSelesai!) : '-';
-
+  String get tanggalFormatted =>
+      DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(waktuMulai);
+  String get waktuMulaiFormatted =>
+      DateFormat('HH:mm', 'id_ID').format(waktuMulai);
+  String get waktuSelesaiFormatted => waktuSelesai != null
+      ? DateFormat('HH:mm', 'id_ID').format(waktuSelesai!)
+      : '-';
 
   Map<String, dynamic> toJson() {
     return {
@@ -111,11 +124,13 @@ class Rapat {
       'id_user_pengaju': idPengaju, // API Anda menggunakan 'id_user_pengaju'
       'id_status': idStatus,
 
+      // PERBAIKAN: Tambahkan 'divisions' saat konversi ke JSON jika diperlukan
+      'divisions': divisions,
+
       // 'id_rapat' biasanya tidak perlu dikirim dalam body,
       // karena sudah ada di URL endpoint (misal: /api/rapat/34) saat update.
       // Namun, jika API Anda mengharapkannya, Anda bisa uncomment baris di bawah.
       // 'id_rapat': idRapat,
     };
   }
-
 }
