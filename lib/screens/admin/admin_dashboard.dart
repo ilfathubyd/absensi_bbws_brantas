@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 import '../../services/auth_service.dart';
 import 'package:absen_app/screens/admin/create_meeting.dart';
 import 'package:absen_app/screens/admin/edit_meeting.dart';
-// import 'package:absen_app/screens/admin/meeting_qr.dart';
+import 'package:absen_app/screens/admin/meeting_qr.dart';
 import 'package:absen_app/Models/models/user.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -21,7 +21,8 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   // --- State untuk UI ---
   int _currentPageIndex = 0; // Untuk BottomNavigationBar
-  int _selectedTab = 0; // Untuk Tab di halaman Dashboard (Daftar Rapat / Pengajuan)
+  int _selectedTab =
+      0; // Untuk Tab di halaman Dashboard (Daftar Rapat / Pengajuan)
 
   // PERUBAHAN: Mengganti bool showHistory dengan int untuk 3 state
   int _activeMeetingFilterIndex = 0; // 0: Diterima, 1: Menunggu, 2: History
@@ -81,7 +82,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       if (e.toString().contains('Sesi')) {
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
-            Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
+            Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false);
           }
         });
       }
@@ -90,7 +94,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   void _exportMeetingData(Rapat rapat) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Export data rapat '${rapat.judul}' belum diimplementasi")),
+      SnackBar(
+          content:
+              Text("Export data rapat '${rapat.judul}' belum diimplementasi")),
     );
   }
 
@@ -103,25 +109,37 @@ class _AdminDashboardState extends State<AdminDashboard> {
 // GANTI SELURUH METHOD BUILD ANDA DENGAN INI
   @override
   Widget build(BuildContext context) {
-    final meetingRequests = _allRapat.where((r) => r.statusRapat == 'Menunggu').toList();
+    final meetingRequests =
+        _allRapat.where((r) => r.statusRapat == 'Menunggu').toList();
 
     // Daftar judul untuk AppBar sesuai dengan halaman
-    const List<String> _appBarTitles = ['Admin Dashboard', 'Admin Panel', 'Profil Admin'];
+    const List<String> _appBarTitles = [
+      'Admin Dashboard',
+      'Admin Panel',
+      'Profil Admin'
+    ];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         // Menggunakan judul dari list berdasarkan index halaman
-        title: Text(_appBarTitles[_currentPageIndex], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(_appBarTitles[_currentPageIndex],
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 0,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
-            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF1565C0), Color(0xFF42A5F5)]),
+            gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF1565C0), Color(0xFF42A5F5)]),
           ),
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: _refreshData),
+          IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              onPressed: _refreshData),
           if (meetingRequests.isNotEmpty)
             Stack(
               children: [
@@ -137,9 +155,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   top: 8,
                   child: Container(
                     padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)),
-                    constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                    child: Text(meetingRequests.length.toString(), style: const TextStyle(color: Colors.white, fontSize: 8), textAlign: TextAlign.center),
+                    decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(6)),
+                    constraints:
+                        const BoxConstraints(minWidth: 14, minHeight: 14),
+                    child: Text(meetingRequests.length.toString(),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 8),
+                        textAlign: TextAlign.center),
                   ),
                 ),
               ],
@@ -150,12 +174,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
               margin: const EdgeInsets.only(right: 8),
               child: PopupMenuButton<String>(
                 icon: _currentUser?.photo != null
-                    ? CircleAvatar(backgroundImage: NetworkImage(_currentUser!.photo!), radius: 18)
+                    ? CircleAvatar(
+                        backgroundImage: NetworkImage(_currentUser!.photo!),
+                        radius: 18)
                     : const CircleAvatar(child: Icon(Icons.person), radius: 18),
                 onSelected: (value) async {
                   if (value == 'logout') {
                     await _authService.logout();
-                    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
+                    Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        (route) => false);
                   }
                 },
                 itemBuilder: (context) => [
@@ -164,13 +193,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     child: Row(children: [
                       const Icon(Icons.person, color: Colors.grey),
                       const SizedBox(width: 8),
-                      Text('Halo, ${_currentUser?.name ?? 'Admin'}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                      Text('Halo, ${_currentUser?.name ?? 'Admin'}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black)),
                     ]),
                   ),
                   const PopupMenuDivider(),
                   const PopupMenuItem(
                     value: 'logout',
-                    child: Row(children: [Icon(Icons.logout, color: Colors.red), SizedBox(width: 8), Text('Logout')]),
+                    child: Row(children: [
+                      Icon(Icons.logout, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Logout')
+                    ]),
                   ),
                 ],
               ),
@@ -206,22 +242,31 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
       floatingActionButton: _currentPageIndex == 0 && _selectedTab == 0
           ? Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: const LinearGradient(colors: [Color(0xFFFFC107), Color(0xFFFFB300)]),
-          boxShadow: [BoxShadow(color: const Color(0xFFFFC107).withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))],
-        ),
-        child: FloatingActionButton.extended(
-          onPressed: () async {
-            final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateRapat()));
-            if (result == true) _refreshData();
-          },
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          label: const Text('Buat Rapat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          icon: const Icon(Icons.add, color: Colors.white),
-        ),
-      )
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: const LinearGradient(
+                    colors: [Color(0xFFFFC107), Color(0xFFFFB300)]),
+                boxShadow: [
+                  BoxShadow(
+                      color: const Color(0xFFFFC107).withOpacity(0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6))
+                ],
+              ),
+              child: FloatingActionButton.extended(
+                onPressed: () async {
+                  final result = await Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const CreateRapat()));
+                  if (result == true) _refreshData();
+                },
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                label: const Text('Buat Rapat',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
+                icon: const Icon(Icons.add, color: Colors.white),
+              ),
+            )
           : null,
       // PERUBAHAN: Menambahkan halaman panel ke daftar body
       body: <Widget>[
@@ -233,74 +278,117 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildDashboardPage() {
-    final meetingRequests = _allRapat.where((r) => r.statusRapat == 'Menunggu').toList();
+    final meetingRequests =
+        _allRapat.where((r) => r.statusRapat == 'Menunggu').toList();
 
     return _isLoading
-        ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1565C0))))
+        ? const Center(
+            child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1565C0))))
         : _errorMessage != null
-        ? Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Icon(Icons.error_outline, size: 64, color: Colors.red),
-          const SizedBox(height: 16),
-          Text(_errorMessage!, style: const TextStyle(fontSize: 16, color: Colors.red), textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          ElevatedButton(onPressed: _loadData, child: const Text('Coba Lagi')),
-        ]),
-      ),
-    )
-        : Column(
-      children: [
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12)),
-          child: Row(children: [
-            Expanded(
-              child: InkWell(
-                onTap: () => setState(() => _selectedTab = 0),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(color: _selectedTab == 0 ? const Color(0xFF1565C0) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
-                  child: Center(child: Text('Daftar Rapat', style: TextStyle(color: _selectedTab == 0 ? Colors.white : Colors.grey[700], fontWeight: FontWeight.bold))),
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            size: 64, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text(_errorMessage!,
+                            style: const TextStyle(
+                                fontSize: 16, color: Colors.red),
+                            textAlign: TextAlign.center),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                            onPressed: _loadData,
+                            child: const Text('Coba Lagi')),
+                      ]),
                 ),
-              ),
-            ),
-            Expanded(
-              child: InkWell(
-                onTap: () => setState(() => _selectedTab = 1),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(color: _selectedTab == 1 ? const Color(0xFF1565C0) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
-                  child: Stack(alignment: Alignment.center, children: [
-                    Center(child: Text('Pengajuan Rapat', style: TextStyle(color: _selectedTab == 1 ? Colors.white : Colors.grey[700], fontWeight: FontWeight.bold))),
-                    if (meetingRequests.isNotEmpty)
-                      Positioned(
-                        right: 10,
-                        top: 0,
-                        bottom: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                          constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-                          child: Center(child: Text(meetingRequests.length.toString(), style: const TextStyle(color: Colors.white, fontSize: 10), textAlign: TextAlign.center)),
+              )
+            : Column(
+                children: [
+                  Container(
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Row(children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => setState(() => _selectedTab = 0),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                                color: _selectedTab == 0
+                                    ? const Color(0xFF1565C0)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12)),
+                            child: Center(
+                                child: Text('Daftar Rapat',
+                                    style: TextStyle(
+                                        color: _selectedTab == 0
+                                            ? Colors.white
+                                            : Colors.grey[700],
+                                        fontWeight: FontWeight.bold))),
+                          ),
                         ),
                       ),
-                  ]),
-                ),
-              ),
-            ),
-          ]),
-        ),
-        Expanded(
-            child: _selectedTab == 0
-                ? _buildMeetingList()
-                : _buildMeetingRequestList(meetingRequests)
-        ),
-      ],
-    );
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => setState(() => _selectedTab = 1),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                                color: _selectedTab == 1
+                                    ? const Color(0xFF1565C0)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12)),
+                            child:
+                                Stack(alignment: Alignment.center, children: [
+                              Center(
+                                  child: Text('Pengajuan Rapat',
+                                      style: TextStyle(
+                                          color: _selectedTab == 1
+                                              ? Colors.white
+                                              : Colors.grey[700],
+                                          fontWeight: FontWeight.bold))),
+                              if (meetingRequests.isNotEmpty)
+                                Positioned(
+                                  right: 10,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle),
+                                    constraints: const BoxConstraints(
+                                        minWidth: 20, minHeight: 20),
+                                    child: Center(
+                                        child: Text(
+                                            meetingRequests.length.toString(),
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10),
+                                            textAlign: TextAlign.center)),
+                                  ),
+                                ),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    ]),
+                  ),
+                  Expanded(
+                      child: _selectedTab == 0
+                          ? _buildMeetingList()
+                          : _buildMeetingRequestList(meetingRequests)),
+                ],
+              );
   }
 
   Widget _buildProfilePage() {
@@ -313,50 +401,63 @@ class _AdminDashboardState extends State<AdminDashboard> {
           child: _isLoading
               ? const CircularProgressIndicator()
               : Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (_currentUser != null) ...[
-                _currentUser!.photo != null
-                    ? CircleAvatar(
-                  backgroundImage: NetworkImage(_currentUser!.photo!),
-                  radius: 40,
-                )
-                    : CircleAvatar(
-                  backgroundColor: const Color(0xFF1565C0),
-                  radius: 40,
-                  child: Text(
-                    _currentUser!.name.isNotEmpty ? _currentUser!.name.substring(0, 1).toUpperCase() : 'A',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24),
-                  ),
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_currentUser != null) ...[
+                      _currentUser!.photo != null
+                          ? CircleAvatar(
+                              backgroundImage:
+                                  NetworkImage(_currentUser!.photo!),
+                              radius: 40,
+                            )
+                          : CircleAvatar(
+                              backgroundColor: const Color(0xFF1565C0),
+                              radius: 40,
+                              child: Text(
+                                _currentUser!.name.isNotEmpty
+                                    ? _currentUser!.name
+                                        .substring(0, 1)
+                                        .toUpperCase()
+                                    : 'A',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 24),
+                              ),
+                            ),
+                      const SizedBox(height: 16),
+                      Text(_currentUser!.name,
+                          style: theme.textTheme.titleLarge),
+                      const SizedBox(height: 8),
+                      Text(_currentUser!.email,
+                          style: theme.textTheme.bodyMedium),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          await _authService.logout();
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const LoginScreen()),
+                            (route) => false,
+                          );
+                        },
+                        icon: const Icon(Icons.logout),
+                        label: const Text('Logout'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ] else ...[
+                      const Icon(Icons.person_off,
+                          size: 48, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      Text('Gagal memuat profil',
+                          style: theme.textTheme.titleLarge),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 16),
-                Text(_currentUser!.name, style: theme.textTheme.titleLarge),
-                const SizedBox(height: 8),
-                Text(_currentUser!.email, style: theme.textTheme.bodyMedium),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    await _authService.logout();
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                          (route) => false,
-                    );
-                  },
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Logout'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ] else ...[
-                const Icon(Icons.person_off, size: 48, color: Colors.grey),
-                const SizedBox(height: 16),
-                Text('Gagal memuat profil', style: theme.textTheme.titleLarge),
-              ],
-            ],
-          ),
         ),
       ),
     );
@@ -369,12 +470,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
         : _allRapat.where((r) => r.idCabang == _selectedCabangId).toList();
 
     // 2. Filter dan urutkan rapat berdasarkan status untuk setiap tab
-    final diterimaMeetings = meetingsForDisplay
-        .where((r) {
+    final diterimaMeetings = meetingsForDisplay.where((r) {
       final status = r.statusRapat.toLowerCase();
-      return status == 'diterima' || status == 'disetujui' || status == 'berlangsung';
-    })
-        .toList()
+      return status == 'diterima' ||
+          status == 'disetujui' ||
+          status == 'berlangsung';
+    }).toList()
       ..sort((a, b) => a.waktuMulai.compareTo(b.waktuMulai)); // Ascending
 
     final menungguMeetings = meetingsForDisplay
@@ -382,12 +483,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
         .toList()
       ..sort((a, b) => a.waktuMulai.compareTo(b.waktuMulai)); // Ascending
 
-    final historyMeetings = meetingsForDisplay
-        .where((r) {
+    final historyMeetings = meetingsForDisplay.where((r) {
       final status = r.statusRapat.toLowerCase();
       return status == 'selesai' || status == 'ditolak';
-    })
-        .toList()
+    }).toList()
       ..sort((a, b) => b.waktuMulai.compareTo(a.waktuMulai)); // Descending
 
     // 3. Tentukan list mana yang akan ditampilkan berdasarkan tab aktif
@@ -410,13 +509,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
           Container(
             width: 120,
             height: 120,
-            decoration: BoxDecoration(color: const Color(0xFF1565C0).withOpacity(0.1), shape: BoxShape.circle),
-            child: const Icon(Icons.meeting_room_outlined, size: 60, color: Color(0xFF1565C0)),
+            decoration: BoxDecoration(
+                color: const Color(0xFF1565C0).withOpacity(0.1),
+                shape: BoxShape.circle),
+            child: const Icon(Icons.meeting_room_outlined,
+                size: 60, color: Color(0xFF1565C0)),
           ),
           const SizedBox(height: 24),
-          const Text('Belum ada rapat', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1565C0))),
+          const Text('Belum ada rapat',
+              style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1565C0))),
           const SizedBox(height: 8),
-          Text('Tekan tombol "+" untuk membuat rapat baru', style: TextStyle(fontSize: 16, color: Colors.grey[600]), textAlign: TextAlign.center),
+          Text('Tekan tombol "+" untuk membuat rapat baru',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              textAlign: TextAlign.center),
         ]),
       );
     }
@@ -428,23 +536,43 @@ class _AdminDashboardState extends State<AdminDashboard> {
           margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFFFFC107), Color(0xFFFFB300)]),
+            gradient: const LinearGradient(
+                colors: [Color(0xFFFFC107), Color(0xFFFFB300)]),
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: const Color(0xFFFFC107).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
+            boxShadow: [
+              BoxShadow(
+                  color: const Color(0xFFFFC107).withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4))
+            ],
           ),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+          child:
+              Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
             Column(children: [
               const Icon(Icons.event, color: Colors.white, size: 32),
               const SizedBox(height: 8),
-              Text('${_allRapat.length}', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-              const Text('Total Rapat', style: TextStyle(color: Colors.white, fontSize: 12)),
+              Text('${_allRapat.length}',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold)),
+              const Text('Total Rapat',
+                  style: TextStyle(color: Colors.white, fontSize: 12)),
             ]),
-            Container(height: 60, width: 1, color: Colors.white.withOpacity(0.3)),
+            Container(
+                height: 60, width: 1, color: Colors.white.withOpacity(0.3)),
             Column(children: [
-              const Icon(Icons.check_circle_outline, color: Colors.white, size: 32),
+              const Icon(Icons.check_circle_outline,
+                  color: Colors.white, size: 32),
               const SizedBox(height: 8),
-              Text('${_allRapat.where((r) => r.statusRapat.toLowerCase() == 'diterima' || r.statusRapat.toLowerCase() == 'disetujui' || r.statusRapat.toLowerCase() == 'berlangsung').length}', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-              const Text('Diterima', style: TextStyle(color: Colors.white, fontSize: 12)),
+              Text(
+                  '${_allRapat.where((r) => r.statusRapat.toLowerCase() == 'diterima' || r.statusRapat.toLowerCase() == 'disetujui' || r.statusRapat.toLowerCase() == 'berlangsung').length}',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold)),
+              const Text('Diterima',
+                  style: TextStyle(color: Colors.white, fontSize: 12)),
             ]),
           ]),
         ),
@@ -468,91 +596,126 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
         meetings.isEmpty
             ? Expanded(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Text(
-                _selectedCabangId == null
-                    ? 'Tidak ada rapat untuk kategori ini.'
-                    : 'Tidak ada data rapat untuk cabang yang dipilih.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-              ),
-            ),
-          ),
-        )
-            : Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
-            itemCount: meetings.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, i) {
-              final Rapat m = meetings[i];
-              return InkWell(
-                onTap: () => _showMeetingDetailsDialog(m),
-                borderRadius: BorderRadius.circular(16),
-                child: Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: LinearGradient(colors: [Colors.white, _getCardGradientColor(m.statusRapat)]),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(color: _getStatusColor(m.statusRapat), borderRadius: BorderRadius.circular(12)),
-                            child: Icon(_getStatusIcon(m.statusRapat), color: Colors.white, size: 24),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(child: Text(m.judul, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1565C0)), maxLines: 2, overflow: TextOverflow.ellipsis)),
-                        ]),
-                        const SizedBox(height: 16),
-                        _buildInfoRow(Icons.meeting_room, m.namaRuangan),
-                        const SizedBox(height: 8),
-                        _buildInfoRow(Icons.access_time, DateFormat('EEEE, dd MMMM yyyy HH:mm', 'id_ID').format(m.waktuMulai)),
-                        const SizedBox(height: 8),
-                        _buildInfoRow(Icons.person, m.namaPengaju),
-                        const SizedBox(height: 8),
-                        _buildInfoRow(Icons.flag, 'Status: ${m.statusRapat}'),
-                        const SizedBox(height: 16),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(children: [
-                            if (_activeMeetingFilterIndex != 2) ...[
-                              _buildActionButton(
-                                  'Edit', Icons.edit, const Color(0xFFFFC107), () async {
-                                final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => EditMeeting(rapat: m)));
-                                if (result == true) _refreshData();
-                              }),
-                              const SizedBox(width: 8),
-                            ],
-                            if (m.statusRapat == 'Selesai') ...[
-                              _buildActionButton('Export', Icons.download, Colors.green, () => _exportMeetingData(m)),
-                              const SizedBox(width: 8),
-                            ],
-                            _buildActionButton('QR', Icons.qr_code, const Color(0xFF1565C0), () {
-                              // Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingQR(rapat: m)));
-                            }),
-                          ]),
-                        ),
-                      ]),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Text(
+                      _selectedCabangId == null
+                          ? 'Tidak ada rapat untuk kategori ini.'
+                          : 'Tidak ada data rapat untuk cabang yang dipilih.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                     ),
                   ),
                 ),
-              );
-            },
-          ),
-        ),
+              )
+            : Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+                  itemCount: meetings.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, i) {
+                    final Rapat m = meetings[i];
+                    return InkWell(
+                      onTap: () => _showMeetingDetailsDialog(m),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            gradient: LinearGradient(colors: [
+                              Colors.white,
+                              _getCardGradientColor(m.statusRapat)
+                            ]),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    Container(
+                                      width: 50,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                          color: _getStatusColor(m.statusRapat),
+                                          borderRadius:
+                                              BorderRadius.circular(12)),
+                                      child: Icon(_getStatusIcon(m.statusRapat),
+                                          color: Colors.white, size: 24),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                        child: Text(m.judul,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                color: Color(0xFF1565C0)),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis)),
+                                  ]),
+                                  const SizedBox(height: 16),
+                                  _buildInfoRow(
+                                      Icons.meeting_room, m.namaRuangan),
+                                  const SizedBox(height: 8),
+                                  _buildInfoRow(
+                                      Icons.access_time,
+                                      DateFormat('EEEE, dd MMMM yyyy HH:mm',
+                                              'id_ID')
+                                          .format(m.waktuMulai)),
+                                  const SizedBox(height: 8),
+                                  _buildInfoRow(Icons.person, m.namaPengaju),
+                                  const SizedBox(height: 8),
+                                  _buildInfoRow(
+                                      Icons.flag, 'Status: ${m.statusRapat}'),
+                                  const SizedBox(height: 16),
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(children: [
+                                      if (_activeMeetingFilterIndex != 2) ...[
+                                        _buildActionButton('Edit', Icons.edit,
+                                            const Color(0xFFFFC107), () async {
+                                          final result = await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      EditMeeting(rapat: m)));
+                                          if (result == true) _refreshData();
+                                        }),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      if (m.statusRapat == 'Selesai') ...[
+                                        _buildActionButton(
+                                            'Export',
+                                            Icons.download,
+                                            Colors.green,
+                                            () => _exportMeetingData(m)),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      _buildActionButton('QR', Icons.qr_code,
+                                          const Color(0xFF1565C0), () {
+                                        Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (_) => MeetingQR(
+                                                    initialRapat: m)));
+                                      }),
+                                    ]),
+                                  ),
+                                ]),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
       ],
     );
   }
-
 
   // Widget baru untuk membuat tab filter
   Widget _buildFilterTab({required String label, required int index}) {
@@ -586,13 +749,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
           Container(
             width: 120,
             height: 120,
-            decoration: BoxDecoration(color: const Color(0xFF1565C0).withOpacity(0.1), shape: BoxShape.circle),
-            child: const Icon(Icons.check_circle_outline, size: 60, color: Color(0xFF1565C0)),
+            decoration: BoxDecoration(
+                color: const Color(0xFF1565C0).withOpacity(0.1),
+                shape: BoxShape.circle),
+            child: const Icon(Icons.check_circle_outline,
+                size: 60, color: Color(0xFF1565C0)),
           ),
           const SizedBox(height: 24),
-          const Text('Tidak ada pengajuan rapat', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1565C0))),
+          const Text('Tidak ada pengajuan rapat',
+              style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1565C0))),
           const SizedBox(height: 8),
-          Text('Semua pengajuan rapat telah diproses', style: TextStyle(fontSize: 16, color: Colors.grey[600]), textAlign: TextAlign.center),
+          Text('Semua pengajuan rapat telah diproses',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              textAlign: TextAlign.center),
         ]),
       );
     }
@@ -607,39 +779,61 @@ class _AdminDashboardState extends State<AdminDashboard> {
           borderRadius: BorderRadius.circular(16),
           child: Card(
             elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Container(
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), gradient: const LinearGradient(colors: [Colors.white, Color(0xFFE3F2FD)])),
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: const LinearGradient(
+                      colors: [Colors.white, Color(0xFFE3F2FD)])),
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(color: const Color(0xFFFF9800), borderRadius: BorderRadius.circular(12)),
-                      child: const Icon(Icons.pending_actions, color: Colors.white, size: 24),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(request.judul, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1565C0)), maxLines: 2, overflow: TextOverflow.ellipsis)),
-                  ]),
-                  const SizedBox(height: 12),
-                  _buildInfoRow(Icons.person, 'Oleh: ${request.namaPengaju}'),
-                  const SizedBox(height: 6),
-                  _buildInfoRow(Icons.meeting_room, request.namaRuangan),
-                  const SizedBox(height: 6),
-                  _buildInfoRow(Icons.access_time, DateFormat('EEEE, dd MMMM yyyy HH:mm', 'id_ID').format(request.waktuMulai)),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(
-                      child: _buildRequestButton('Setujui', Icons.check, Colors.green, () => _approveRequest(request)),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildRequestButton('Tolak', Icons.close, Colors.red, () => _showRejectionDialog(request)),
-                    ),
-                  ]),
-                ]),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFFF9800),
+                              borderRadius: BorderRadius.circular(12)),
+                          child: const Icon(Icons.pending_actions,
+                              color: Colors.white, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                            child: Text(request.judul,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: Color(0xFF1565C0)),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis)),
+                      ]),
+                      const SizedBox(height: 12),
+                      _buildInfoRow(
+                          Icons.person, 'Oleh: ${request.namaPengaju}'),
+                      const SizedBox(height: 6),
+                      _buildInfoRow(Icons.meeting_room, request.namaRuangan),
+                      const SizedBox(height: 6),
+                      _buildInfoRow(
+                          Icons.access_time,
+                          DateFormat('EEEE, dd MMMM yyyy HH:mm', 'id_ID')
+                              .format(request.waktuMulai)),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        Expanded(
+                          child: _buildRequestButton('Setujui', Icons.check,
+                              Colors.green, () => _approveRequest(request)),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildRequestButton('Tolak', Icons.close,
+                              Colors.red, () => _showRejectionDialog(request)),
+                        ),
+                      ]),
+                    ]),
               ),
             ),
           ),
@@ -653,12 +847,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
       children: [
         Icon(icon, size: 16, color: Colors.grey[700]),
         const SizedBox(width: 8),
-        Expanded(child: Text(text, style: TextStyle(color: Colors.grey[800], fontSize: 14), overflow: TextOverflow.ellipsis)),
+        Expanded(
+            child: Text(text,
+                style: TextStyle(color: Colors.grey[800], fontSize: 14),
+                overflow: TextOverflow.ellipsis)),
       ],
     );
   }
 
-  Widget _buildActionButton(String label, IconData icon, Color color, VoidCallback onPressed) {
+  Widget _buildActionButton(
+      String label, IconData icon, Color color, VoidCallback onPressed) {
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 16),
@@ -673,7 +871,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildRequestButton(String label, IconData icon, Color color, VoidCallback onPressed) {
+  Widget _buildRequestButton(
+      String label, IconData icon, Color color, VoidCallback onPressed) {
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 18),
@@ -700,11 +899,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                Text(label,
+                    style: const TextStyle(color: Colors.grey, fontSize: 13)),
                 const SizedBox(height: 2),
                 Text(
                   value.isNotEmpty ? value : '-',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Colors.black87),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: Colors.black87),
                 ),
               ],
             ),
@@ -717,34 +920,52 @@ class _AdminDashboardState extends State<AdminDashboard> {
   // Helper functions untuk warna dan ikon berdasarkan status
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'Disetujui': return Colors.green;
-      case 'Berlangsung': return Colors.blue;
-      case 'Menunggu': return Colors.orange;
-      case 'Ditolak': return Colors.red;
-      case 'Selesai': return Colors.grey;
-      default: return Colors.purple;
+      case 'Disetujui':
+        return Colors.green;
+      case 'Berlangsung':
+        return Colors.blue;
+      case 'Menunggu':
+        return Colors.orange;
+      case 'Ditolak':
+        return Colors.red;
+      case 'Selesai':
+        return Colors.grey;
+      default:
+        return Colors.purple;
     }
   }
 
   IconData _getStatusIcon(String status) {
     switch (status) {
-      case 'Disetujui': return Icons.check_circle;
-      case 'Berlangsung': return Icons.play_circle_filled;
-      case 'Menunggu': return Icons.pending_actions;
-      case 'Ditolak': return Icons.cancel;
-      case 'Selesai': return Icons.history;
-      default: return Icons.help;
+      case 'Disetujui':
+        return Icons.check_circle;
+      case 'Berlangsung':
+        return Icons.play_circle_filled;
+      case 'Menunggu':
+        return Icons.pending_actions;
+      case 'Ditolak':
+        return Icons.cancel;
+      case 'Selesai':
+        return Icons.history;
+      default:
+        return Icons.help;
     }
   }
 
   Color _getCardGradientColor(String status) {
     switch (status) {
-      case 'Disetujui': return Colors.green.shade50;
-      case 'Berlangsung': return Colors.blue.shade50;
-      case 'Menunggu': return Colors.orange.shade50;
-      case 'Ditolak': return Colors.red.shade50;
-      case 'Selesai': return Colors.grey.shade100;
-      default: return Colors.purple.shade50;
+      case 'Disetujui':
+        return Colors.green.shade50;
+      case 'Berlangsung':
+        return Colors.blue.shade50;
+      case 'Menunggu':
+        return Colors.orange.shade50;
+      case 'Ditolak':
+        return Colors.red.shade50;
+      case 'Selesai':
+        return Colors.grey.shade100;
+      default:
+        return Colors.purple.shade50;
     }
   }
 
@@ -754,7 +975,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(children: [
             Icon(Icons.info_outline, color: Color(0xFF1565C0)),
             SizedBox(width: 10),
@@ -765,45 +987,72 @@ class _AdminDashboardState extends State<AdminDashboard> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(rapat.judul, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.black)),
+                Text(rapat.judul,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(color: Colors.black)),
                 const SizedBox(height: 8),
                 const Divider(),
-                _buildDetailRow(Icons.tag, "ID Rapat", rapat.idRapat.toString()),
-                _buildDetailRow(Icons.description_outlined, "Deskripsi", rapat.deskripsi),
+                _buildDetailRow(
+                    Icons.tag, "ID Rapat", rapat.idRapat.toString()),
+                _buildDetailRow(
+                    Icons.description_outlined, "Deskripsi", rapat.deskripsi),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: Row(
                     children: [
-                      Icon(Icons.flag_outlined, color: Colors.grey[700], size: 20),
+                      Icon(Icons.flag_outlined,
+                          color: Colors.grey[700], size: 20),
                       const SizedBox(width: 16),
                       Chip(
-                        avatar: Icon(_getStatusIcon(rapat.statusRapat), color: _getStatusColor(rapat.statusRapat), size: 18),
-                        label: Text(rapat.statusRapat, style: TextStyle(color: _getStatusColor(rapat.statusRapat), fontWeight: FontWeight.bold)),
-                        backgroundColor: _getStatusColor(rapat.statusRapat).withOpacity(0.1),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        avatar: Icon(_getStatusIcon(rapat.statusRapat),
+                            color: _getStatusColor(rapat.statusRapat),
+                            size: 18),
+                        label: Text(rapat.statusRapat,
+                            style: TextStyle(
+                                color: _getStatusColor(rapat.statusRapat),
+                                fontWeight: FontWeight.bold)),
+                        backgroundColor:
+                            _getStatusColor(rapat.statusRapat).withOpacity(0.1),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                       ),
                     ],
                   ),
                 ),
-                _buildDetailRow(Icons.person_outline, "Pengaju", rapat.namaPengaju),
-                _buildDetailRow(Icons.business_outlined, "Cabang", rapat.namaCabang),
-                _buildDetailRow(Icons.meeting_room_outlined, "Ruangan", rapat.namaRuangan),
-                _buildDetailRow(Icons.calendar_today_outlined, "Waktu Mulai", DateFormat('EEEE, dd MMMM yyyy HH:mm', 'id_ID').format(rapat.waktuMulai)),
-                _buildDetailRow(Icons.timelapse_outlined, "Waktu Selesai", rapat.waktuSelesaiFormatted),
+                _buildDetailRow(
+                    Icons.person_outline, "Pengaju", rapat.namaPengaju),
+                _buildDetailRow(
+                    Icons.business_outlined, "Cabang", rapat.namaCabang),
+                _buildDetailRow(
+                    Icons.meeting_room_outlined, "Ruangan", rapat.namaRuangan),
+                _buildDetailRow(
+                    Icons.calendar_today_outlined,
+                    "Waktu Mulai",
+                    DateFormat('EEEE, dd MMMM yyyy HH:mm', 'id_ID')
+                        .format(rapat.waktuMulai)),
+                _buildDetailRow(Icons.timelapse_outlined, "Waktu Selesai",
+                    rapat.waktuSelesaiFormatted),
               ],
             ),
           ),
           actions: [
             // <-- TOMBOL HAPUS DITAMBAHKAN DI SINI
             TextButton(
-              child: const Text("Hapus", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              child: const Text("Hapus",
+                  style: TextStyle(
+                      color: Colors.red, fontWeight: FontWeight.bold)),
               onPressed: () {
                 Navigator.of(context).pop(); // Tutup dialog detail
-                _showDeleteConfirmationFromDetail(rapat); // Tampilkan dialog konfirmasi hapus
+                _showDeleteConfirmationFromDetail(
+                    rapat); // Tampilkan dialog konfirmasi hapus
               },
             ),
             TextButton(
-              child: const Text("Tutup", style: TextStyle(color: Color(0xFF1565C0), fontWeight: FontWeight.bold)),
+              child: const Text("Tutup",
+                  style: TextStyle(
+                      color: Color(0xFF1565C0), fontWeight: FontWeight.bold)),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ],
@@ -817,10 +1066,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Setujui Pengajuan Rapat'),
-        content: Text('Apakah Anda yakin ingin menyetujui pengajuan rapat "${request.judul}"?'),
+        content: Text(
+            'Apakah Anda yakin ingin menyetujui pengajuan rapat "${request.judul}"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text('Setujui')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: const Text('Setujui')),
         ],
       ),
     );
@@ -828,10 +1083,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
     try {
       await _rapatApiService.approveRapat(request.idRapat);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Pengajuan "${request.judul}" telah disetujui'), backgroundColor: Colors.green));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Pengajuan "${request.judul}" telah disetujui'),
+          backgroundColor: Colors.green));
       _refreshData();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal menyetujui: ${e.toString()}'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Gagal menyetujui: ${e.toString()}'),
+          backgroundColor: Colors.red));
     }
   }
 
@@ -845,19 +1104,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Apakah Anda yakin ingin menolak pengajuan rapat "${request.judul}"?'),
+            Text(
+                'Apakah Anda yakin ingin menolak pengajuan rapat "${request.judul}"?'),
             const SizedBox(height: 16),
-            const Text('Alasan Penolakan:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Alasan Penolakan:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            TextField(controller: reasonController, decoration: const InputDecoration(hintText: 'Masukkan alasan penolakan...', border: OutlineInputBorder()), maxLines: 3),
+            TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(
+                    hintText: 'Masukkan alasan penolakan...',
+                    border: OutlineInputBorder()),
+                maxLines: 3),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal')),
           ElevatedButton(
             onPressed: () {
               if (reasonController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Harap masukkan alasan penolakan'), backgroundColor: Colors.red));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Harap masukkan alasan penolakan'),
+                    backgroundColor: Colors.red));
                 return;
               }
               Navigator.pop(context, true);
@@ -873,16 +1143,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
     try {
       final rejectionReason = reasonController.text.trim();
       await _rapatApiService.rejectRapat(request.idRapat, rejectionReason);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Pengajuan "${request.judul}" telah ditolak'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Pengajuan "${request.judul}" telah ditolak'),
+          backgroundColor: Colors.red));
       _refreshData();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal menolak: ${e.toString()}'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Gagal menolak: ${e.toString()}'),
+          backgroundColor: Colors.red));
     }
   }
 
   Widget _buildCabangFilterDropdown() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0), // Mengurangi padding atas
+      padding:
+          const EdgeInsets.fromLTRB(16, 0, 16, 0), // Mengurangi padding atas
       child: DropdownButtonFormField<int?>(
         value: _selectedCabangId,
         isExpanded: true,
@@ -895,11 +1170,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
         items: [
           const DropdownMenuItem<int?>(
             value: null,
-            child: Text('Semua Cabang', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text('Semua Cabang',
+                style: TextStyle(fontWeight: FontWeight.bold)),
           ),
           ..._allCabang.map<DropdownMenuItem<int?>>((cabang) {
             final int id = (cabang['id'] ?? 0) as int;
-            final String nama = (cabang['cabang'] ?? 'Cabang Tanpa Nama') as String;
+            final String nama =
+                (cabang['cabang'] ?? 'Cabang Tanpa Nama') as String;
             return DropdownMenuItem<int?>(
               value: id,
               child: Text(nama),
@@ -921,7 +1198,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.admin_panel_settings_outlined, size: 80, color: Colors.grey),
+          Icon(Icons.admin_panel_settings_outlined,
+              size: 80, color: Colors.grey),
           SizedBox(height: 16),
           Text(
             'Halaman Panel Admin',
@@ -941,16 +1219,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   // TAMBAHKAN DUA FUNGSI BARU INI DI DALAM class _AdminDashboardState
-  Future<void> _deleteRapat(int idRapat, String judul) async {
+  Future<void> _deleteRapat(String idRapat, String judul) async {
     try {
       await _rapatApiService.deleteRapat(idRapat);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Rapat "$judul" berhasil dihapus'), backgroundColor: Colors.orange),
+        SnackBar(
+            content: Text('Rapat "$judul" berhasil dihapus'),
+            backgroundColor: Colors.orange),
       );
       _refreshData(); // Refresh data setelah berhasil menghapus
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal menghapus rapat: $e'), backgroundColor: Colors.red),
+        SnackBar(
+            content: Text('Gagal menghapus rapat: $e'),
+            backgroundColor: Colors.red),
       );
     }
   }
@@ -960,7 +1242,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Konfirmasi Hapus'),
-        content: Text('Apakah Anda yakin ingin menghapus rapat "${rapat.judul}"? Tindakan ini tidak dapat diurungkan.'),
+        content: Text(
+            'Apakah Anda yakin ingin menghapus rapat "${rapat.judul}"? Tindakan ini tidak dapat diurungkan.'),
         actions: [
           TextButton(
             child: const Text('Batal'),

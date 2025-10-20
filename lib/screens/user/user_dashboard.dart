@@ -43,7 +43,7 @@ class _UserDashboardState extends State<UserDashboard> {
       setState(() {
         _isLoading = false;
         _currentUser = AppUser(
-          id_user: 0,
+          id_user: 'guest_id', // PERUBAHAN: Gunakan String, bukan int
           id_role: 4, // Guest role
           name: 'Guest User',
           username: 'guest',
@@ -83,7 +83,8 @@ class _UserDashboardState extends State<UserDashboard> {
         _isLoading = false;
         _errorMessage = "Gagal memuat data: ${e.toString()}";
       });
-      if (e.toString().contains('Sesi') || e.toString().contains('Not authenticated')) {
+      if (e.toString().contains('Sesi') ||
+          e.toString().contains('Not authenticated')) {
         _handleSessionExpired();
       }
     }
@@ -93,7 +94,8 @@ class _UserDashboardState extends State<UserDashboard> {
     final now = DateTime.now();
     _upcomingRapat = _allRapat.where((r) {
       final status = r.statusRapat.toLowerCase();
-      return (status == 'disetujui' || status == 'berlangsung') && r.waktuMulai.isAfter(now);
+      return (status == 'disetujui' || status == 'berlangsung') &&
+          r.waktuMulai.isAfter(now);
     }).toList();
     _upcomingRapat.sort((a, b) => a.waktuMulai.compareTo(b.waktuMulai));
   }
@@ -109,7 +111,7 @@ class _UserDashboardState extends State<UserDashboard> {
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
+      (route) => false,
     );
   }
 
@@ -146,7 +148,8 @@ class _UserDashboardState extends State<UserDashboard> {
               const SizedBox(height: 20),
               Text(_errorMessage!, textAlign: TextAlign.center),
               const SizedBox(height: 20),
-              ElevatedButton(onPressed: _loadData, child: const Text('Coba Lagi')),
+              ElevatedButton(
+                  onPressed: _loadData, child: const Text('Coba Lagi')),
             ],
           ),
         ),
@@ -156,7 +159,9 @@ class _UserDashboardState extends State<UserDashboard> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F6FF),
       appBar: AppBar(
-        title: Text(appBarTitles[_currentPageIndex], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(appBarTitles[_currentPageIndex],
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1E3A8A),
         elevation: 0,
         actions: [
@@ -219,7 +224,8 @@ class _UserDashboardState extends State<UserDashboard> {
           end: Alignment.bottomCenter,
           colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
         ),
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
+        borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -229,7 +235,10 @@ class _UserDashboardState extends State<UserDashboard> {
           children: [
             Text(
               'Halo, ${_currentUser?.name ?? 'User'}',
-              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
@@ -253,14 +262,21 @@ class _UserDashboardState extends State<UserDashboard> {
           colors: [Color(0xFFFFC107), Color(0xFFFFD54F)],
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: const Color(0xFFFFC107).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6))],
+        boxShadow: [
+          BoxShadow(
+              color: const Color(0xFFFFC107).withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 6))
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem(Icons.calendar_today, widget.isGuestMode ? 0 : _allRapat.length, 'Total Rapat'),
+          _buildStatItem(Icons.calendar_today,
+              widget.isGuestMode ? 0 : _allRapat.length, 'Total Rapat'),
           Container(width: 1, height: 60, color: Colors.white.withOpacity(0.3)),
-          _buildStatItem(Icons.access_time, widget.isGuestMode ? 0 : _upcomingRapat.length, 'Akan Datang'),
+          _buildStatItem(Icons.access_time,
+              widget.isGuestMode ? 0 : _upcomingRapat.length, 'Akan Datang'),
         ],
       ),
     );
@@ -271,9 +287,17 @@ class _UserDashboardState extends State<UserDashboard> {
       children: [
         Icon(icon, color: Colors.white, size: 28),
         const SizedBox(height: 8),
-        Text(count.toString(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
+        Text(count.toString(),
+            style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.white)),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white)),
       ],
     );
   }
@@ -284,7 +308,11 @@ class _UserDashboardState extends State<UserDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Rapat Akan Datang', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+          const Text('Rapat Akan Datang',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B))),
           const SizedBox(height: 16),
           if (widget.isGuestMode)
             _buildGuestEmptyState()
@@ -323,30 +351,43 @@ class _UserDashboardState extends State<UserDashboard> {
             radius: 50,
             backgroundColor: const Color(0xFF1E3A8A).withOpacity(0.2),
             child: widget.isGuestMode
-                ? const Icon(Icons.person_pin_circle_outlined, size: 50, color: Color(0xFF1E3A8A))
+                ? const Icon(Icons.person_pin_circle_outlined,
+                    size: 50, color: Color(0xFF1E3A8A))
                 : _currentUser?.photo != null
-                ? ClipOval(child: Image.network(_currentUser!.photo!, fit: BoxFit.cover, width: 100, height: 100))
-                : Text(
-              _currentUser?.name.substring(0, 1).toUpperCase() ?? 'U',
-              style: const TextStyle(fontSize: 48, color: Color(0xFF1E3A8A)),
-            ),
+                    ? ClipOval(
+                        child: Image.network(_currentUser!.photo!,
+                            fit: BoxFit.cover, width: 100, height: 100))
+                    : Text(
+                        _currentUser?.name.substring(0, 1).toUpperCase() ?? 'U',
+                        style: const TextStyle(
+                            fontSize: 48, color: Color(0xFF1E3A8A)),
+                      ),
           ),
           const SizedBox(height: 16),
-          Text(_currentUser?.name ?? 'Guest User', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          Text(_currentUser?.email ?? 'Silakan login', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+          Text(_currentUser?.name ?? 'Guest User',
+              style:
+                  const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          Text(_currentUser?.email ?? 'Silakan login',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600])),
           const SizedBox(height: 32),
           const Divider(),
-          _buildProfileInfoTile(Icons.person_outline, "Username", _currentUser?.username ?? '-'),
-          _buildProfileInfoTile(Icons.badge_outlined, "Role", _currentUser?.role ?? 'Guest'),
-          _buildProfileInfoTile(Icons.business_outlined, "Division", _currentUser?.division ?? '-'),
-          _buildProfileInfoTile(Icons.phone_outlined, "Telepon", _currentUser?.phone ?? '-'),
+          _buildProfileInfoTile(
+              Icons.person_outline, "Username", _currentUser?.username ?? '-'),
+          _buildProfileInfoTile(
+              Icons.badge_outlined, "Role", _currentUser?.role ?? 'Guest'),
+          _buildProfileInfoTile(Icons.business_outlined, "Division",
+              _currentUser?.division ?? '-'),
+          _buildProfileInfoTile(
+              Icons.phone_outlined, "Telepon", _currentUser?.phone ?? '-'),
           const Divider(),
           const SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: () {
               if (widget.isGuestMode) {
                 Navigator.pushAndRemoveUntil(
-                    context, MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false);
               } else {
                 _logout();
               }
@@ -354,10 +395,13 @@ class _UserDashboardState extends State<UserDashboard> {
             icon: Icon(widget.isGuestMode ? Icons.login : Icons.logout),
             label: Text(widget.isGuestMode ? 'Login Sekarang' : 'Logout'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: widget.isGuestMode ? const Color(0xFF1E3A8A) : Colors.red[400],
+              backgroundColor: widget.isGuestMode
+                  ? const Color(0xFF1E3A8A)
+                  : Colors.red[400],
               foregroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ],
@@ -373,7 +417,6 @@ class _UserDashboardState extends State<UserDashboard> {
     );
   }
 
-
   // ============== WIDGET-WIDGET HELPER ==============
 
   void _showMeetingDetails(Rapat rapat) {
@@ -381,7 +424,9 @@ class _UserDashboardState extends State<UserDashboard> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Detail Rapat', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+          title: const Text('Detail Rapat',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
           content: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -404,17 +449,20 @@ class _UserDashboardState extends State<UserDashboard> {
               onPressed: () {
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Halaman absensi belum diaktifkan.')),
+                  const SnackBar(
+                      content: Text('Halaman absensi belum diaktifkan.')),
                 );
               },
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1E3A8A),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8))),
               child: const Text('Absen', style: TextStyle(color: Colors.white)),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Tutup', style: TextStyle(color: Color(0xFF1E3A8A))),
+              child: const Text('Tutup',
+                  style: TextStyle(color: Color(0xFF1E3A8A))),
             ),
           ],
         );
@@ -426,9 +474,15 @@ class _UserDashboardState extends State<UserDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500)),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500)),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontSize: 16, color: Colors.black87, fontWeight: FontWeight.w500)),
+        Text(value,
+            style: const TextStyle(
+                fontSize: 16,
+                color: Colors.black87,
+                fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -439,25 +493,38 @@ class _UserDashboardState extends State<UserDashboard> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.blue.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Row(
         children: [
           Container(
             width: 60,
             height: 60,
-            decoration: BoxDecoration(color: const Color(0xFFE3F2FD), borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.upcoming, color: Color(0xFF1E3A8A), size: 30),
+            decoration: BoxDecoration(
+                color: const Color(0xFFE3F2FD),
+                borderRadius: BorderRadius.circular(10)),
+            child:
+                const Icon(Icons.upcoming, color: Color(0xFF1E3A8A), size: 30),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(rapat.judul, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(rapat.judul,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 8),
                 _buildCardInfoRow(Icons.meeting_room, rapat.namaRuangan),
-                _buildCardInfoRow(Icons.calendar_today, '${rapat.tanggalFormatted} - ${rapat.waktuMulaiFormatted}'),
+                _buildCardInfoRow(Icons.calendar_today,
+                    '${rapat.tanggalFormatted} - ${rapat.waktuMulaiFormatted}'),
               ],
             ),
           ),
@@ -473,7 +540,10 @@ class _UserDashboardState extends State<UserDashboard> {
         children: [
           Icon(icon, size: 14, color: Colors.grey),
           const SizedBox(width: 6),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 12, color: Colors.grey), overflow: TextOverflow.ellipsis)),
+          Expanded(
+              child: Text(text,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  overflow: TextOverflow.ellipsis)),
         ],
       ),
     );
@@ -487,7 +557,8 @@ class _UserDashboardState extends State<UserDashboard> {
           children: [
             Icon(Icons.event_available, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            const Text('Tidak ada rapat yang akan datang', style: TextStyle(fontSize: 16, color: Colors.grey)),
+            const Text('Tidak ada rapat yang akan datang',
+                style: TextStyle(fontSize: 16, color: Colors.grey)),
           ],
         ),
       ),
@@ -503,9 +574,12 @@ class _UserDashboardState extends State<UserDashboard> {
           children: [
             Icon(Icons.no_accounts, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            const Text('Anda masuk sebagai tamu', style: TextStyle(fontSize: 16, color: Colors.grey)),
+            const Text('Anda masuk sebagai tamu',
+                style: TextStyle(fontSize: 16, color: Colors.grey)),
             const SizedBox(height: 8),
-            const Text('Silakan login untuk melihat daftar rapat.', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Colors.grey)),
+            const Text('Silakan login untuk melihat daftar rapat.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey)),
           ],
         ),
       ),

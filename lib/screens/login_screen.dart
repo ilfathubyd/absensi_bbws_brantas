@@ -8,8 +8,10 @@ import 'package:absen_app/Models/models/user.dart';
 import 'package:absen_app/services/auth_service.dart';
 
 // TAMBAHAN: Import untuk Guest Dashboard dan modal baru
-import 'package:absen_app/screens/guest/guest_dashboard.dart' show GuestDashboard;
-import 'package:absen_app/screens/guest/guest_room_modal.dart' show GuestRoomModal;
+import 'package:absen_app/screens/guest/guest_dashboard.dart'
+    show GuestDashboard;
+import 'package:absen_app/screens/guest/guest_room_modal.dart'
+    show GuestRoomModal;
 
 late AppUser currentUser;
 
@@ -60,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       switch (user.id_role) {
         case 1: // Admin
-        targetScreen = const AdminDashboard();
+          targetScreen = const AdminDashboard();
           screenName = 'Admin Dashboard';
           break;
         case 2: // PIC
@@ -92,7 +94,6 @@ class _LoginScreenState extends State<LoginScreen> {
         context,
         MaterialPageRoute(builder: (_) => targetScreen),
       );
-
     } catch (e) {
       if (!mounted) return;
 
@@ -123,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final guestUser = AppUser(
-        id_user: 0,
+        id_user: 'guest_id', // PERUBAHAN: Gunakan String, bukan int
         username: 'guest',
         name: 'Guest User',
         id_role: 3,
@@ -140,7 +141,6 @@ class _LoginScreenState extends State<LoginScreen> {
           _showRoomCodeModal(context);
         }
       });
-
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -168,7 +168,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // FUNGSI UTAMA UNTUK RESPONSIVITAS
-  double _getResponsiveSize(BuildContext context, double small, double medium, double large) {
+  double _getResponsiveSize(
+      BuildContext context, double small, double medium, double large) {
     final width = MediaQuery.of(context).size.width;
     if (width < 350) return small; // Untuk layar sangat kecil
     if (width < 600) return medium; // Untuk layar ponsel standar
@@ -205,7 +206,8 @@ class _LoginScreenState extends State<LoginScreen> {
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: isSmallScreen ? 320 : 400,
-                  minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.vertical,
+                  minHeight: MediaQuery.of(context).size.height -
+                      MediaQuery.of(context).padding.vertical,
                 ),
                 child: Card(
                   elevation: 12,
@@ -215,7 +217,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: Colors.white,
                   child: Padding(
                     // PERUBAHAN: Padding dalam card responsif
-                    padding: EdgeInsets.all(_getResponsiveSize(context, 16, 24, 32)),
+                    padding:
+                        EdgeInsets.all(_getResponsiveSize(context, 16, 24, 32)),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -255,7 +258,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         // PERUBAHAN: Jarak vertikal responsif
-                        SizedBox(height: _getResponsiveSize(context, 16, 20, 24)),
+                        SizedBox(
+                            height: _getResponsiveSize(context, 16, 20, 24)),
 
                         // Title
                         Text(
@@ -280,7 +284,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: Colors.grey[600],
                           ),
                         ),
-                        SizedBox(height: _getResponsiveSize(context, 20, 28, 32)),
+                        SizedBox(
+                            height: _getResponsiveSize(context, 20, 28, 32)),
 
                         // Username field
                         TextField(
@@ -312,7 +317,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             fillColor: Colors.grey[50],
                           ),
                         ),
-                        SizedBox(height: _getResponsiveSize(context, 12, 14, 16)),
+                        SizedBox(
+                            height: _getResponsiveSize(context, 12, 14, 16)),
 
                         // Password field
                         TextField(
@@ -344,7 +350,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           obscureText: true,
                         ),
-                        SizedBox(height: _getResponsiveSize(context, 20, 24, 28)),
+                        SizedBox(
+                            height: _getResponsiveSize(context, 20, 24, 28)),
 
                         // Tombol Login Utama
                         Container(
@@ -377,29 +384,33 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             child: _isLoading
                                 ? SizedBox(
-                              // PERUBAHAN: Ukuran loading indicator responsif
-                              width: _getResponsiveSize(context, 20, 22, 24),
-                              height: _getResponsiveSize(context, 20, 22, 24),
-                              child: const CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 3,
-                              ),
-                            )
+                                    // PERUBAHAN: Ukuran loading indicator responsif
+                                    width:
+                                        _getResponsiveSize(context, 20, 22, 24),
+                                    height:
+                                        _getResponsiveSize(context, 20, 22, 24),
+                                    child: const CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 3,
+                                    ),
+                                  )
                                 : Text(
-                              'LOGIN',
-                              style: TextStyle(
-                                color: Colors.white,
-                                // PERUBAHAN: Ukuran font tombol responsif
-                                fontSize: _getResponsiveSize(context, 14, 15, 16),
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1,
-                              ),
-                            ),
+                                    'LOGIN',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      // PERUBAHAN: Ukuran font tombol responsif
+                                      fontSize: _getResponsiveSize(
+                                          context, 14, 15, 16),
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
                           ),
                         ),
 
                         // Tombol Login Sebagai Guest
-                        SizedBox(height: _getResponsiveSize(context, 12, 14, 16)),
+                        SizedBox(
+                            height: _getResponsiveSize(context, 12, 14, 16)),
                         Container(
                           // PERUBAHAN: Tinggi tombol responsif
                           height: _getResponsiveSize(context, 45, 48, 50),
@@ -430,41 +441,47 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             child: _isGuestLoading
                                 ? SizedBox(
-                              // PERUBAHAN: Ukuran loading indicator responsif
-                              width: _getResponsiveSize(context, 20, 22, 24),
-                              height: _getResponsiveSize(context, 20, 22, 24),
-                              child: const CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 3,
-                              ),
-                            )
-                                : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.person_outline,
-                                  color: Colors.white,
-                                  // PERUBAHAN: Ukuran ikon responsif
-                                  size: _getResponsiveSize(context, 16, 18, 20),
-                                ),
-                                SizedBox(width: _getResponsiveSize(context, 6, 7, 8)),
-                                Flexible(
-                                  child: Text(
-                                    'LOGIN SEBAGAI GUEST',
-                                    style: TextStyle(
+                                    // PERUBAHAN: Ukuran loading indicator responsif
+                                    width:
+                                        _getResponsiveSize(context, 20, 22, 24),
+                                    height:
+                                        _getResponsiveSize(context, 20, 22, 24),
+                                    child: const CircularProgressIndicator(
                                       color: Colors.white,
-                                      // PERUBAHAN: Ukuran font tombol responsif
-                                      fontSize: _getResponsiveSize(context, 12, 14, 16),
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
+                                      strokeWidth: 3,
                                     ),
-                                    textAlign: TextAlign.center,
-                                    overflow: TextOverflow.ellipsis,
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.person_outline,
+                                        color: Colors.white,
+                                        // PERUBAHAN: Ukuran ikon responsif
+                                        size: _getResponsiveSize(
+                                            context, 16, 18, 20),
+                                      ),
+                                      SizedBox(
+                                          width: _getResponsiveSize(
+                                              context, 6, 7, 8)),
+                                      Flexible(
+                                        child: Text(
+                                          'LOGIN SEBAGAI GUEST',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            // PERUBAHAN: Ukuran font tombol responsif
+                                            fontSize: _getResponsiveSize(
+                                                context, 12, 14, 16),
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.5,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
                       ],

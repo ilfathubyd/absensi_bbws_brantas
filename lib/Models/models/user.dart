@@ -1,7 +1,7 @@
 // lib/Models/models/user.dart
 
 class AppUser {
-  final int id_user;
+  final String id_user;
   final int id_role;
   final int? id_division; // Nullable karena bisa kosong
   final String username;
@@ -39,8 +39,8 @@ class AppUser {
   factory AppUser.fromJson(Map<String, dynamic> json) {
     return AppUser(
       // PERUBAHAN: Tambahkan `?? 0` untuk memberikan nilai default jika null
-      id_user: json['id_user'] ?? 0,
-      id_role: json['id_role'] ?? 0,
+      id_user: json['id_user']?.toString() ?? '',
+      id_role: json['id_role'] ?? 3, // Default ke role user jika null
 
       // Handle null dengan aman
       id_division: json['id_division'] as int?,
@@ -72,7 +72,7 @@ class AppUser {
   // Method lainnya tetap sama
   Map<String, dynamic> toJson() {
     return {
-      'id': id_user,
+      'id_user': id_user,
       'id_role': id_role,
       'id_division': id_division,
       'name': name,

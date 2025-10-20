@@ -1,10 +1,9 @@
-// lib/screens/admin/edit_meeting.dart
-
 import 'package:absen_app/Models/models/rapat.dart';
 import 'package:absen_app/Models/services/rapat_api_service.dart';
 import 'package:absen_app/Models/services/participant_selector_page.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:absen_app/Models/models/division.dart';
 
 class EditMeeting extends StatefulWidget {
   final Rapat rapat;
@@ -32,7 +31,7 @@ class _EditMeetingState extends State<EditMeeting> {
   List<Map<String, dynamic>> _cabangList = [];
   List<Map<String, dynamic>> _ruanganList = [];
   List<Map<String, dynamic>> _userList = []; // Untuk pengaju
-  List<Map<String, dynamic>> _divisionList = []; // Untuk peserta
+  List<Division> _allDivisions = []; // Untuk peserta
 
   final List<Map<String, dynamic>> _statusList = [
     {'id': 1, 'name': 'Menunggu'},
@@ -43,36 +42,32 @@ class _EditMeetingState extends State<EditMeeting> {
   ];
 
   // State untuk nilai terpilih
-  // --- PERBAIKAN: Buat nullable agar tidak error saat build pertama kali ---
   int? _selectedCabangId;
   int? _selectedRuanganId;
-  int? _selectedPengajuId;
+  String? _selectedPengajuId;
   int? _selectedStatusId;
-  List<Map<String, dynamic>> _selectedDivisions = [];
+  List<Division> _selectedDivisions = [];
 
-  late DateTime _selectedStartTime;
-  DateTime? _selectedEndTime;
+  // State untuk tanggal dan waktu (disamakan dengan create_meeting)
+  late DateTime _selectedDate;
+  late TimeOfDay _selectedStartTime;
+  TimeOfDay? _selectedEndTime;
   bool _isEndTimeIndefinite = false;
 
   @override
   void initState() {
     super.initState();
-    // 1. Inisialisasi controller dan state yang tidak bergantung pada data async
     _titleController = TextEditingController(text: widget.rapat.judul);
     _descriptionController =
         TextEditingController(text: widget.rapat.deskripsi);
-    _selectedStartTime = widget.rapat.waktuMulai;
-    _selectedEndTime = widget.rapat.waktuSelesai;
     _isEndTimeIndefinite = widget.rapat.waktuSelesai == null;
 
-    // PERBAIKAN: Inisialisasi status berdasarkan nama, bukan ID, agar lebih fleksibel.
-    final initialStatus = _statusList.firstWhere(
-      (s) => s['name'] == widget.rapat.statusRapat,
-      orElse: () => {'id': 1}, // Default ke 'Menunggu' jika tidak ditemukan
-    );
-    _selectedStatusId = initialStatus['id'];
+    _selectedDate = widget.rapat.waktuMulai;
+    _selectedStartTime = TimeOfDay.fromDateTime(widget.rapat.waktuMulai);
+    _selectedEndTime = widget.rapat.waktuSelesai != null
+        ? TimeOfDay.fromDateTime(widget.rapat.waktuSelesai!)
+        : null;
 
-    // 2. Panggil fungsi untuk memuat semua data async
     _loadInitialData();
   }
 
@@ -83,43 +78,43 @@ class _EditMeetingState extends State<EditMeeting> {
       final results = await Future.wait([
         _rapatApiService.fetchCabang(),
         // Ambil ruangan berdasarkan cabang awal dari rapat yang diedit
+        _rapatApiService.fetchRoomsByCabang(widget.rapat.idCabang),
+        // PERBAIKAN: Urutan fetch ditukar agar sesuai
+        _rapatApiService.fetchUsers(), // fetch divisions (untuk peserta)
         _rapatApiService
-            .fetchRoomsByCabang(widget.rapat.idCabang), // fetch rooms
-        _rapatApiService.fetchUsersPIC(), // fetch PIC users
-        _rapatApiService.fetchUsers(), // fetch divisions
+            .fetchUsersPIC(), // fetch PIC users (untuk penanggung jawab)
       ]);
 
-      // 3. Setelah data API tersedia, baru isi state dan atur nilai terpilih
       setState(() {
         _cabangList = results[0] as List<Map<String, dynamic>>;
         _ruanganList = results[1];
-        _userList = results[2];
+        final divisionsData = results[2] as List<Map<String, dynamic>>;
+        _userList = results[3]; // <-- Diambil dari hasil ke-4
+        _allDivisions =
+            divisionsData.map((json) => Division.fromJson(json)).toList();
 
-        // --- PERBAIKAN UTAMA DI SINI ---
-        // Atur nilai terpilih SETELAH daftar pilihan (_cabangList, dll) terisi
-
-        // Cek apakah ID cabang dari rapat ada di daftar cabang yang baru dimuat
         if (_cabangList.any((c) => c['id'] == widget.rapat.idCabang)) {
           _selectedCabangId = widget.rapat.idCabang;
         }
 
-        // Cek apakah ID ruangan dari rapat ada di daftar ruangan yang baru dimuat
         if (_ruanganList.any((r) => r['id_room'] == widget.rapat.idRuangan)) {
           _selectedRuanganId = widget.rapat.idRuangan;
         }
 
-        // Cek apakah ID pengaju dari rapat ada di daftar user yang baru dimuat
-        if (_userList.any((u) =>
-            u['id_user'] == widget.rapat.idPengaju ||
-            u['id'] == widget.rapat.idPengaju)) {
+        if (_userList
+            .any((u) => u['id_user']?.toString() == widget.rapat.idPengaju)) {
           _selectedPengajuId = widget.rapat.idPengaju;
         }
 
-        // PERBAIKAN: Inisialisasi peserta (divisi) yang sudah terpilih
-        _divisionList = results[3];
-        _selectedDivisions = _divisionList
+        final initialStatus = _statusList.firstWhere(
+          (s) => s['name'] == widget.rapat.statusRapat,
+          orElse: () => {'id': 1},
+        );
+        _selectedStatusId = initialStatus['id'];
+
+        _selectedDivisions = _allDivisions
             .where((div) => widget.rapat.divisions
-                .any((d) => d['id_division'] == div['id']))
+                .any((selectedDiv) => selectedDiv['id_division'] == div.id))
             .toList();
       });
     } catch (e) {
@@ -164,17 +159,16 @@ class _EditMeetingState extends State<EditMeeting> {
     super.dispose();
   }
 
-  // PERBAIKAN: Tambahkan fungsi untuk memilih peserta
   Future<void> _selectParticipants() async {
-    final result = await Navigator.push<List<Map<String, dynamic>>>(
+    final result = await Navigator.push<List<Division>>(
       context,
       MaterialPageRoute(
-        builder: (context) => ItemSelectorPage<Map<String, dynamic>>(
+        builder: (context) => ItemSelectorPage<Division>(
           pageTitle: 'Pilih Peserta (Divisi)',
-          allItems: _divisionList,
+          allItems: _allDivisions,
           initialSelection: _selectedDivisions,
-          itemTitleBuilder: (item) => (item['name'] ?? 'Tanpa Nama').toString(),
-          itemSubtitleBuilder: (item) => (item['description'] ?? '').toString(),
+          itemTitleBuilder: (item) => item.name,
+          itemSubtitleBuilder: (item) => 'ID: ${item.id}',
         ),
       ),
     );
@@ -186,30 +180,103 @@ class _EditMeetingState extends State<EditMeeting> {
     }
   }
 
-  // ... (Sisa kode build, _updateMeeting, _deleteMeeting, dll tetap sama)
-  // ... Pastikan widget DropdownButtonFormField Anda menggunakan variabel state yang sudah nullable
-  // ... Contoh: _selectedCabangId, _selectedRuanganId, dll.
-  // ... KODE DI BAWAH INI TIDAK BERUBAH DARI SEBELUMNYA ...
+  // Fungsi untuk memilih tanggal & waktu (disamakan dengan create_meeting)
+  Future<void> _pickDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (date != null) setState(() => _selectedDate = date);
+  }
+
+  Future<void> _pickStartTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: _selectedStartTime,
+    );
+    if (time != null) setState(() => _selectedStartTime = time);
+  }
+
+  Future<void> _pickEndTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: _selectedEndTime ?? _selectedStartTime,
+    );
+    if (time != null) {
+      final now = DateTime.now();
+      final startDateTime = DateTime(now.year, now.month, now.day,
+          _selectedStartTime.hour, _selectedStartTime.minute);
+      final endDateTime =
+          DateTime(now.year, now.month, now.day, time.hour, time.minute);
+
+      if (endDateTime.isBefore(startDateTime)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Waktu selesai tidak boleh sebelum waktu mulai'),
+          backgroundColor: Colors.red,
+        ));
+      } else {
+        setState(() => _selectedEndTime = time);
+      }
+    }
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'Belum dipilih';
+    return DateFormat('d MMMM yyyy', 'id_ID').format(date);
+  }
+
+  String _formatTime(TimeOfDay? time) {
+    if (time == null) return 'Belum dipilih';
+    final now = DateTime.now();
+    final dt = DateTime(now.year, now.month, now.day, time.hour, time.minute);
+    return DateFormat('HH:mm').format(dt);
+  }
+
+  String _two(int v) => v.toString().padLeft(2, '0');
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text('Edit Rapat',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1565C0),
+        centerTitle: true,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          IconButton(
-            icon: _isDeleting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2))
-                : const Icon(Icons.delete_outline),
-            onPressed: _isDeleting ? null : _showDeleteConfirmation,
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'delete') {
+                _showDeleteConfirmation();
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Hapus Rapat'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -220,233 +287,271 @@ class _EditMeetingState extends State<EditMeeting> {
   }
 
   Widget _buildForm() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionHeader('Detail Rapat', Icons.article),
-                    const SizedBox(height: 16),
-                    _buildTextFormField(
-                      controller: _titleController,
-                      label: 'Judul Rapat',
-                      icon: Icons.title,
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Judul tidak boleh kosong'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextFormField(
-                      controller: _descriptionController,
-                      label: 'Deskripsi',
-                      icon: Icons.description,
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildDropdownField<int?>(
-                      // Tipe data diubah ke nullable
-                      value: _selectedStatusId,
-                      items: _statusList.map((status) {
-                        return DropdownMenuItem<int>(
-                          value: status['id'],
-                          child: Text(status['name']),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null)
-                          setState(() => _selectedStatusId = value);
-                      },
-                      label: 'Status Rapat',
-                      icon: Icons.flag,
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 16 : 24,
+        vertical: 16,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Column(
+            children: [
+              // Header Card
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(isSmallScreen ? 20 : 24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                      colors: [Color(0xFF1565C0), Color(0xFF42A5F5)]),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1565C0).withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildSectionHeader('Logistik', Icons.business),
-                    const SizedBox(height: 16),
-                    _buildDropdownField<int?>(
-                      // Tipe data diubah ke nullable
-                      value: _selectedCabangId,
-                      items: _cabangList.map((cabang) {
-                        final id = cabang['id'] as int;
-                        // PERBAIKAN: Menangani jika nama cabang null atau key berbeda
-                        final name = (cabang['cabang'] ??
-                                cabang['nama'] ??
-                                'Cabang Tanpa Nama')
-                            .toString();
-                        return DropdownMenuItem<int>(
-                            value: id, child: Text(name));
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null && value != _selectedCabangId) {
-                          setState(() => _selectedCabangId = value);
-                          _fetchRoomsForSelectedCabang(value);
-                        }
-                      },
-                      label: 'Pilih Cabang',
-                      icon: Icons.location_city,
-                    ),
-                    const SizedBox(height: 16),
-                    if (_isLoadingRooms)
-                      const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24.0),
-                          child: Center(child: CircularProgressIndicator()))
-                    else
-                      _buildDropdownField<int?>(
-                        value: _selectedRuanganId,
-                        items: _ruanganList.map((ruangan) {
-                          final id = ruangan['id_room'] as int;
-                          // PERBAIKAN: Menangani jika nama ruangan null
-                          final name = (ruangan['room'] ?? 'Ruangan Tanpa Nama')
-                              .toString();
-                          return DropdownMenuItem<int>(
-                              value: id, child: Text(name));
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null)
-                            setState(() => _selectedRuanganId = value);
-                        },
-                        label: 'Pilih Ruangan',
-                        icon: Icons.meeting_room,
+                    Icon(Icons.edit_note,
+                        size: isSmallScreen ? 48 : 56, color: Colors.white),
+                    SizedBox(height: isSmallScreen ? 12 : 16),
+                    Text(
+                      'Formulir Edit Rapat',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isSmallScreen ? 20 : 22,
+                        fontWeight: FontWeight.bold,
                       ),
-                    const SizedBox(height: 16),
-                    _buildDropdownField<int?>(
-                      // Tipe data diubah ke nullable
-                      value: _selectedPengajuId,
-                      items: _userList.map((user) {
-                        // Pastikan key 'id_user' ada
-                        final id = user['id_user'] as int;
-                        // PERBAIKAN: Menangani jika nama user null
-                        final name =
-                            (user['name'] ?? 'User Tanpa Nama').toString();
-                        return DropdownMenuItem<int>(
-                            value: id, child: Text(name));
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null)
-                          setState(() => _selectedPengajuId = value);
-                      },
-                      label: 'Penanggung Jawab',
-                      icon: Icons.person,
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(8.0), // Mengurangi padding
-                child: ListTile(
-                  leading: const Icon(Icons.group, color: Color(0xFF1565C0)),
-                  title: const Text('Peserta Rapat (Divisi)'),
-                  subtitle: Text('${_selectedDivisions.length} divisi dipilih'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _selectParticipants,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              SizedBox(height: isSmallScreen ? 24 : 32),
+
+              // Form Card
+              Card(
+                elevation: 4,
+                shadowColor: Colors.grey.withOpacity(0.2),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+                child: Padding(
+                  padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader('Informasi Rapat', Icons.article),
+                        const SizedBox(height: 16),
+                        _buildTextFormField(
+                          controller: _titleController,
+                          label: 'Judul Rapat',
+                          icon: Icons.title,
+                          validator: (value) => value == null || value.isEmpty
+                              ? 'Judul tidak boleh kosong'
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextFormField(
+                          controller: _descriptionController,
+                          label: 'Deskripsi',
+                          icon: Icons.description,
+                          maxLines: 3,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildDropdownField<int?>(
+                          value: _selectedStatusId, // Sudah nullable
+                          items: _statusList.map((status) {
+                            return DropdownMenuItem<int>(
+                              value: status['id'],
+                              child: Text(status['name']),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value != null)
+                              setState(() => _selectedStatusId = value);
+                          },
+                          label: 'Status Rapat',
+                          icon: Icons.flag,
+                        ),
+                        const SizedBox(height: 24),
+                        _buildSectionHeader(
+                            'Logistik & Peserta', Icons.business),
+                        const SizedBox(height: 16),
+                        _buildDropdownField<int?>(
+                          value: _selectedCabangId, // Sudah nullable
+                          items: _cabangList.map((cabang) {
+                            final id = cabang['id'] as int;
+                            // PERBAIKAN: Menangani jika nama cabang null atau key berbeda
+                            final name = (cabang['cabang'] ??
+                                    cabang['nama'] ??
+                                    'Cabang Tanpa Nama')
+                                .toString();
+                            return DropdownMenuItem<int>(
+                                value: id, child: Text(name));
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value != null && value != _selectedCabangId) {
+                              setState(() => _selectedCabangId = value);
+                              _fetchRoomsForSelectedCabang(value);
+                            }
+                          },
+                          label: 'Pilih Cabang',
+                          icon: Icons.location_city,
+                        ),
+                        const SizedBox(height: 16),
+                        if (_isLoadingRooms)
+                          const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 24.0),
+                              child: Center(child: CircularProgressIndicator()))
+                        else
+                          _buildDropdownField<int?>(
+                            value: _selectedRuanganId,
+                            items: _ruanganList.map((ruangan) {
+                              final id = ruangan['id_room'] as int;
+                              // PERBAIKAN: Menangani jika nama ruangan null
+                              final name =
+                                  (ruangan['room'] ?? 'Ruangan Tanpa Nama')
+                                      .toString();
+                              return DropdownMenuItem<int>(
+                                  value: id, child: Text(name));
+                            }).toList(),
+                            onChanged: (value) {
+                              if (value != null)
+                                setState(() => _selectedRuanganId = value);
+                            },
+                            label: 'Pilih Ruangan',
+                            icon: Icons.meeting_room,
+                          ),
+                        const SizedBox(height: 16),
+                        _buildDropdownField<String?>(
+                          value: _selectedPengajuId, // Sudah nullable
+                          items: _userList.map((user) {
+                            // Pastikan key 'id_user' ada dan diubah ke String
+                            final id = user['id_user']?.toString();
+                            // PERBAIKAN: Menangani jika nama user null
+                            final name =
+                                (user['name'] ?? 'User Tanpa Nama').toString();
+                            return DropdownMenuItem<String>(
+                                value: id, child: Text(name));
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value != null)
+                              setState(() => _selectedPengajuId = value);
+                          },
+                          label: 'Penanggung Jawab',
+                          icon: Icons.person,
+                        ),
+                        const SizedBox(height: 16),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.group_add,
+                              color: Color(0xFF1565C0), size: 28),
+                          title: const Text('Divisi Peserta',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(
+                              '${_selectedDivisions.length} divisi dipilih'),
+                          trailing: const Icon(Icons.chevron_right),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          onTap: _selectParticipants,
+                        ),
+                        const SizedBox(height: 24),
+                        Container(
+                          padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey[300]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildSectionHeader(
+                                  'Jadwal Rapat', Icons.calendar_today),
+                              const Divider(),
+                              ListTile(
+                                leading: const Icon(Icons.calendar_today,
+                                    color: Color(0xFF1565C0)),
+                                title: const Text('Tanggal'),
+                                subtitle: Text(_formatDate(_selectedDate)),
+                                onTap: _pickDate,
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.access_time_filled,
+                                    color: Colors.green),
+                                title: const Text('Jam Mulai'),
+                                subtitle: Text(_formatTime(_selectedStartTime)),
+                                onTap: _pickStartTime,
+                              ),
+                              if (!_isEndTimeIndefinite)
+                                ListTile(
+                                  leading: const Icon(Icons.access_time,
+                                      color: Colors.red),
+                                  title: const Text('Jam Selesai'),
+                                  subtitle: Text(_formatTime(_selectedEndTime)),
+                                  onTap: _pickEndTime,
+                                ),
+                              SwitchListTile(
+                                title: const Text('Selesai tidak menentu'),
+                                value: _isEndTimeIndefinite,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _isEndTimeIndefinite = value;
+                                    if (value) _selectedEndTime = null;
+                                  });
+                                },
+                                activeColor: const Color(0xFF1565C0),
+                                secondary: const Icon(Icons.help_outline,
+                                    color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionHeader('Jadwal', Icons.calendar_today),
-                    const SizedBox(height: 16),
-                    _buildDateTimePicker(
-                      label: 'Waktu Mulai',
-                      dateTime: _selectedStartTime,
-                      onTap: () => _selectDateTime(isStartTime: true),
-                    ),
-                    const SizedBox(height: 8),
-                    CheckboxListTile(
-                      title: const Text('Waktu selesai tidak menentu',
-                          style: TextStyle(fontSize: 15)),
-                      value: _isEndTimeIndefinite,
-                      onChanged: (bool? newValue) {
-                        setState(() {
-                          _isEndTimeIndefinite = newValue ?? false;
-                          if (_isEndTimeIndefinite) {
-                            _selectedEndTime = null;
-                          } else {
-                            _selectedEndTime = _selectedStartTime;
-                          }
-                        });
-                      },
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                      activeColor: const Color(0xFF1565C0),
-                    ),
-                    if (!_isEndTimeIndefinite)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: _buildDateTimePicker(
-                          label: 'Waktu Selesai',
-                          dateTime: _selectedEndTime,
-                          onTap: () => _selectDateTime(isStartTime: false),
-                        ),
-                      ),
-                  ],
+              SizedBox(height: isSmallScreen ? 24 : 32),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: _isSubmitting ? null : _updateMeeting,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1565C0),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    textStyle: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  icon: _isSubmitting
+                      ? Container(
+                          width: 24,
+                          height: 24,
+                          padding: const EdgeInsets.all(2.0),
+                          child: const CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 3),
+                        )
+                      : const Icon(Icons.save_as),
+                  label:
+                      Text(_isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'),
                 ),
               ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _isSubmitting ? null : _updateMeeting,
-              icon: _isSubmitting
-                  ? const SizedBox()
-                  : const Icon(Icons.save, color: Colors.white),
-              label: _isSubmitting
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(color: Colors.white))
-                  : const Text('Update Rapat',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E88E5),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
+              SizedBox(height: isSmallScreen ? 20 : 24),
+            ],
+          ),
         ),
       ),
     );
@@ -467,14 +572,13 @@ class _EditMeetingState extends State<EditMeeting> {
   }
 
   Widget _buildTextFormField(
-      {required TextEditingController controller,
+      {TextEditingController? controller,
       required String label,
       required IconData icon,
       int maxLines = 1,
       String? Function(String?)? validator}) {
     return TextFormField(
       controller: controller,
-      maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: Colors.grey[600]),
@@ -483,6 +587,7 @@ class _EditMeetingState extends State<EditMeeting> {
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2)),
       ),
+      maxLines: maxLines,
       validator: validator,
     );
   }
@@ -495,9 +600,7 @@ class _EditMeetingState extends State<EditMeeting> {
       required IconData icon}) {
     return DropdownButtonFormField<T>(
       value: value,
-      items: items.isEmpty
-          ? []
-          : items, // PERBAIKAN: Kembalikan list kosong jika items kosong
+      items: items.isEmpty ? [] : items,
       onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
@@ -507,72 +610,6 @@ class _EditMeetingState extends State<EditMeeting> {
       validator: (value) => value == null ? '$label harus dipilih' : null,
       isExpanded: true,
     );
-  }
-
-  Widget _buildDateTimePicker(
-      {required String label,
-      required DateTime? dateTime,
-      required VoidCallback onTap}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(color: Colors.grey[700], fontSize: 12)),
-        const SizedBox(height: 4),
-        InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8)),
-            child: Row(
-              children: [
-                const Icon(Icons.access_time, color: Color(0xFF1565C0)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    dateTime != null
-                        ? DateFormat('EEEE, dd MMM yyyy HH:mm', 'id_ID')
-                            .format(dateTime)
-                        : 'Pilih waktu...',
-                    style: TextStyle(
-                        fontSize: 16,
-                        color: dateTime != null ? Colors.black87 : Colors.grey),
-                  ),
-                ),
-                const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _selectDateTime({required bool isStartTime}) async {
-    final selectedDate = await showDatePicker(
-        context: context,
-        initialDate: (isStartTime ? _selectedStartTime : _selectedEndTime) ??
-            DateTime.now(),
-        firstDate: DateTime(2020),
-        lastDate: DateTime(2030));
-    if (selectedDate == null) return;
-    final selectedTime = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(
-            (isStartTime ? _selectedStartTime : _selectedEndTime) ??
-                DateTime.now()));
-    if (selectedTime == null) return;
-    final finalDateTime = DateTime(selectedDate.year, selectedDate.month,
-        selectedDate.day, selectedTime.hour, selectedTime.minute);
-    setState(() {
-      if (isStartTime) {
-        _selectedStartTime = finalDateTime;
-      } else {
-        _selectedEndTime = finalDateTime;
-      }
-    });
   }
 
   void _updateMeeting() async {
@@ -586,9 +623,14 @@ class _EditMeetingState extends State<EditMeeting> {
           backgroundColor: Colors.red));
       return;
     }
-    // PERBAIKAN: Ambil ID dari divisi yang dipilih
-    final divisionIds =
-        _selectedDivisions.map((div) => div['id'] as int).toList();
+
+    final tanggal =
+        '${_selectedDate.year}-${_two(_selectedDate.month)}-${_two(_selectedDate.day)}';
+    final start =
+        '${_two(_selectedStartTime.hour)}:${_two(_selectedStartTime.minute)}';
+    final end = !_isEndTimeIndefinite && _selectedEndTime != null
+        ? '${_two(_selectedEndTime!.hour)}:${_two(_selectedEndTime!.minute)}'
+        : null;
 
     setState(() => _isSubmitting = true);
     try {
@@ -598,14 +640,12 @@ class _EditMeetingState extends State<EditMeeting> {
         desc: _descriptionController.text.trim(),
         idCabang: _selectedCabangId!,
         idRuangan: _selectedRuanganId!,
-        idPengaju: _selectedPengajuId, // Kirim ID pengaju jika diubah
+        idPengaju: _selectedPengajuId, // Kirim ID pengaju (String) jika diubah
         idStatus: _selectedStatusId!,
-        tanggal: DateFormat('yyyy-MM-dd').format(_selectedStartTime),
-        waktuStart: DateFormat('HH:mm').format(_selectedStartTime),
-        waktuEnd: _selectedEndTime != null
-            ? DateFormat('HH:mm').format(_selectedEndTime!)
-            : null,
-        divisionIds: divisionIds, // Kirim daftar ID divisi
+        tanggal: tanggal,
+        waktuStart: start,
+        waktuEnd: end,
+        divisionIds: _selectedDivisions.map((d) => d.id).toList(),
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

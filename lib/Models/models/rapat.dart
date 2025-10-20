@@ -3,7 +3,7 @@
 import 'package:intl/intl.dart';
 
 class Rapat {
-  final int idRapat;
+  final String idRapat;
   final String judul;
   final String deskripsi;
 
@@ -12,17 +12,20 @@ class Rapat {
   final DateTime? waktuSelesai;
 
   // Properti dari relasi
-  final int idCabang;
+  final int idCabang; // Asumsi idCabang tetap integer
   final String namaCabang; // Akan kita bahas di bawah
-  final int idRuangan;
+  final int idRuangan; // Asumsi idRuangan tetap integer
   final String namaRuangan;
-  final int idPengaju;
+  final String idPengaju;
   final String namaPengaju;
   final int idStatus;
   final String statusRapat;
 
   // PERBAIKAN: Tambahkan properti untuk menampung data divisi
   final List<Map<String, dynamic>> divisions;
+  // PERUBAHAN: Tambahkan token QR dari backend
+  final String? currentQrToken;
+  final String? previousQrToken;
 
   Rapat({
     required this.idRapat,
@@ -39,6 +42,8 @@ class Rapat {
     required this.idStatus,
     required this.statusRapat,
     this.divisions = const [], // Beri nilai default list kosong
+    this.currentQrToken,
+    this.previousQrToken,
   });
 
   // --- INI BAGIAN PALING PENTING: FACTORY fromJson ---
@@ -57,7 +62,7 @@ class Rapat {
 
     return Rapat(
       // PERBAIKAN: Tambahkan `?? 0` untuk memberikan nilai default jika null
-      idRapat: json['id_rapat'] ?? 0,
+      idRapat: json['id_rapat']?.toString() ?? '',
 
       judul: json['judul'] ?? 'Tanpa Judul',
       deskripsi: json['desc'] ?? '', // Menggunakan 'desc' dari JSON
@@ -81,7 +86,7 @@ class Rapat {
       namaRuangan: json['room']?['room'] ?? 'Ruangan Tidak Ditemukan',
 
       // PERBAIKAN: Tambahkan `?? 0` untuk memberikan nilai default jika null
-      idPengaju: json['id_user_pengaju'] ?? 0,
+      idPengaju: json['id_user_pengaju']?.toString() ?? '',
       namaPengaju: json['pengaju']?['name'] ?? 'Pengaju Tidak Ditemukan',
 
       // PERBAIKAN: Tambahkan `?? 0` untuk memberikan nilai default jika null
@@ -93,6 +98,10 @@ class Rapat {
       divisions: json['divisions'] is List
           ? List<Map<String, dynamic>>.from(json['divisions'])
           : [],
+
+      // PERUBAHAN: Ambil token QR dari JSON
+      currentQrToken: json['current_qr_token'],
+      previousQrToken: json['previous_qr_token'],
     );
   }
 

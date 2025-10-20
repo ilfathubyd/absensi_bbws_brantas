@@ -21,7 +21,7 @@ class RapatApiService {
     required String waktuStart, // HH:mm
     String? waktuEnd, // HH:mm or null
     String? desc,
-    int? idUserPengaju, // <-- PERUBAHAN: Tambahkan parameter untuk pengaju
+    String? idUserPengaju, // <-- PERUBAHAN: Tambahkan parameter untuk pengaju
     List<int>? divisions, // <-- Diubah menjadi 'divisions'
   }) async {
     final token = await _authService.getToken();
@@ -48,11 +48,10 @@ class RapatApiService {
             if (waktuEnd != null) 'waktu_end': waktuEnd,
             if (desc != null) 'desc': desc,
             if (idUserPengaju != null)
-              'id_user_pengaju':
-                  idUserPengaju, // <-- PERUBAHAN: Kirim ID pengaju
-            // PERBAIKAN: Pastikan key adalah 'division_ids' sesuai backend
+              'id_user_pengaju': idUserPengaju, // Kirim ID pengaju
+            // PERBAIKAN KRUSIAL: Menggunakan key 'divisions' yang mungkin diharapkan backend
             if (divisions != null && divisions.isNotEmpty)
-              'division_ids': divisions,
+              'divisions': divisions,
           }),
         )
         .timeout(const Duration(seconds: 30));
@@ -172,7 +171,7 @@ class RapatApiService {
   }
 
   /// Menyetujui pengajuan rapat dengan mengirim POST request ke endpoint /setujui.
-  Future<void> approveRapat(int idRapat) async {
+  Future<void> approveRapat(String idRapat) async {
     final token = await _authService.getToken();
     if (token == null) {
       throw Exception('Tidak terautentikasi');
@@ -209,7 +208,7 @@ class RapatApiService {
   }
 
   /// Menolak pengajuan rapat dengan mengirim POST request ke endpoint /tolak.
-  Future<void> rejectRapat(int idRapat, String reason) async {
+  Future<void> rejectRapat(String idRapat, String reason) async {
     final token = await _authService.getToken();
     if (token == null) {
       throw Exception('Tidak terautentikasi');
@@ -248,12 +247,12 @@ class RapatApiService {
   // Tambahkan ini di dalam class RapatApiService di rapat_api_service.dart
 
   Future<Map<String, dynamic>> updateRapat({
-    required int idRapat,
+    required String idRapat,
     required String judul,
     String? desc,
     required int idCabang,
     required int idRuangan,
-    int? idPengaju, // Dibuat opsional dan tidak akan dikirim
+    String? idPengaju, // Dibuat opsional dan tidak akan dikirim
     required int idStatus,
     required String tanggal,
     required String waktuStart,
@@ -304,7 +303,7 @@ class RapatApiService {
     }
   }
 
-  Future<void> deleteRapat(int idRapat) async {
+  Future<void> deleteRapat(String idRapat) async {
     final token = await _authService.getToken();
     if (token == null) throw Exception('Tidak terautentikasi');
 

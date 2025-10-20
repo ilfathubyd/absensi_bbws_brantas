@@ -30,7 +30,8 @@ class _CreateRapatState extends State<CreateRapat> {
   List<Division> _allDivisions = [];
   List<Division> _selectedDivisions = [];
   List<Map<String, dynamic>> _picUsers = []; // Untuk dropdown penanggung jawab
-  int? _selectedPicId; // Untuk menyimpan ID PIC yang dipilih
+  String?
+      _selectedPicId; // Untuk menyimpan ID PIC yang dipilih (sekarang String)
 
   // Variabel State untuk Kontrol UI
   bool _loadingInitialData = true;
@@ -289,7 +290,7 @@ class _CreateRapatState extends State<CreateRapat> {
     }
     if (_selectedPicId == null) {
       _showErrorSnackbar('Data user tidak ditemukan, coba muat ulang halaman');
-      return;
+      return; // Seharusnya 'Pilih Penanggung Jawab (PIC)'
     }
 
     final tanggal =
@@ -317,9 +318,8 @@ class _CreateRapatState extends State<CreateRapat> {
         desc: _descriptionCtrl.text.trim().isEmpty
             ? null
             : _descriptionCtrl.text.trim(),
-        idUserPengaju: _selectedPicId,
-        divisions:
-            divisionIds, // Mengirim ID divisi dengan parameter yang benar ('divisions')
+        idUserPengaju: _selectedPicId!, // Kirim ID PIC yang sudah divalidasi
+        divisions: divisionIds, // Mengirim ID divisi
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -663,7 +663,7 @@ class _CreateRapatState extends State<CreateRapat> {
                             SizedBox(height: isSmallScreen ? 16 : 20),
 
                             // Penanggung Jawab
-                            DropdownButtonFormField<int>(
+                            DropdownButtonFormField<String>(
                               value: _selectedPicId,
                               isExpanded: true,
                               decoration: InputDecoration(
@@ -676,17 +676,17 @@ class _CreateRapatState extends State<CreateRapat> {
                                     borderRadius: BorderRadius.circular(12)),
                               ),
                               items: _picUsers.map((user) {
-                                final id = user['id_user'] as int;
+                                final id = user['id_user']?.toString();
                                 final name = (user['name'] ?? 'User Tanpa Nama')
                                     .toString();
-                                return DropdownMenuItem<int>(
+                                return DropdownMenuItem<String>(
                                     value: id,
                                     child: Text(name,
                                         overflow: TextOverflow.ellipsis));
                               }).toList(),
                               onChanged: _loadingInitialData
                                   ? null
-                                  : (int? newValue) {
+                                  : (String? newValue) {
                                       setState(() => _selectedPicId = newValue);
                                     },
                               validator: (v) =>
