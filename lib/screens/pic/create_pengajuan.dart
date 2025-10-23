@@ -1,3 +1,5 @@
+// CREATE PENGAJUAN PIC
+
 import 'package:absen_app/Models/models/division.dart';
 import 'package:absen_app/Models/models/user.dart';
 import 'package:absen_app/Models/services/participant_selector_page.dart';
@@ -118,15 +120,29 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
   }
 
   // Fungsi baru untuk memuat ruangan berdasarkan cabang yang dipilih
-  Future<void> _loadRoomsForCabang(int cabangId) async {
+  Future<void> _loadRooms() async {
+    if (_selectedCabangId == null ||
+        _selectedDate == null ||
+        _selectedStartTime == null) {
+      return; // Jangan muat ruangan jika data belum lengkap
+    }
+
     setState(() {
       _loadingRooms = true;
       _rooms = []; // Kosongkan list ruangan sebelumnya
       _selectedRoomId = null; // Reset pilihan ruangan
     });
 
+    final tanggal =
+        '${_selectedDate!.year}-${_two(_selectedDate!.month)}-${_two(_selectedDate!.day)}';
+    final start =
+        '${_two(_selectedStartTime!.hour)}:${_two(_selectedStartTime!.minute)}';
+
     try {
-      final rooms = await _rapatApiService.fetchRoomsByCabang(cabangId);
+      final rooms = await _rapatApiService.fetchRoomsByCabang(
+          _selectedCabangId!,
+          tanggal: tanggal,
+          waktuStart: start);
       if (mounted) {
         setState(() {
           _rooms = rooms;
@@ -168,6 +184,7 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
 
     setState(() {
       _selectedDate = date;
+      _loadRooms(); // Muat ulang ruangan saat tanggal berubah
     });
   }
 
@@ -191,12 +208,32 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
     );
     if (time == null) return;
 
+    // --- VALIDASI WAKTU MASA LALU ---
+    final now = DateTime.now();
+    // Gunakan tanggal yang dipilih, atau hari ini jika belum dipilih, untuk validasi
+    final validationDate = _selectedDate ?? DateTime(now.year, now.month, now.day);
+
+    final selectedDateTime = DateTime(
+      validationDate.year,
+      validationDate.month,
+      validationDate.day,
+      time.hour,
+      time.minute,
+    );
+
+    // Cek jika waktu yang dipilih sudah lewat dari waktu sekarang (dengan buffer 1 menit)
+    if (selectedDateTime.isBefore(now.subtract(const Duration(minutes: 1)))) {
+      _showErrorSnackbar('Waktu mulai tidak boleh di masa lalu.');
+      return;
+    }
+
     setState(() {
       _selectedStartTime = time;
       // Jika jam selesai lebih awal dari jam mulai baru, reset jam selesai
       if (_selectedEndTime != null && !_isTimeAfter(time, _selectedEndTime!)) {
         _selectedEndTime = null;
       }
+      _loadRooms(); // Muat ulang ruangan saat waktu mulai berubah
     });
   }
 
@@ -391,6 +428,91 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
     if (selected != null) setState(() => _selectedDivisions = selected);
   }
 
+  // Method untuk compact time item
+  Widget _buildCompactTimeItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 20, color: Color(0xFF4CAF50)),
+            SizedBox(height: 4),
+            Text(label,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            SizedBox(height: 4),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[800])),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Method untuk indefinite switch
+  Widget _buildIndefiniteSwitch() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _isIndefinite ? Colors.orange[50] : Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _isIndefinite ? Colors.orange : Colors.grey[300]!,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            _isIndefinite ? Icons.timelapse : Icons.timelapse,
+            color: _isIndefinite ? Colors.orange : Colors.grey,
+            size: 20,
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Selesai tidak menentu',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: _isIndefinite
+                            ? Colors.orange[800]
+                            : Colors.grey[800])),
+                if (_isIndefinite)
+                  Text('Rapat tidak memiliki waktu selesai tertentu',
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.orange[600])),
+              ],
+            ),
+          ),
+          Switch(
+            value: _isIndefinite,
+            onChanged: (value) {
+              setState(() {
+                _isIndefinite = value;
+                if (value) _selectedEndTime = null;
+              });
+            },
+            activeColor: Colors.orange,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Responsive layout variables
@@ -523,11 +645,72 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
                                         setState(() {
                                           _selectedCabangId = newValue;
                                         });
-                                        _loadRoomsForCabang(newValue);
+                                        _loadRooms();
                                       }
                                     },
                               validator: (v) =>
                                   v == null ? 'Pilih cabang' : null,
+                            ),
+                            SizedBox(height: isSmallScreen ? 16 : 20),
+
+                            // Jadwal Rapat - DIPINDAHKAN SETELAH CABANG
+                            Container(
+                              padding: EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey[300]!),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Jadwal Rapat',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: Color(0xFF4CAF50))),
+                                  SizedBox(height: 12),
+
+                                  // Horizontal layout
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildCompactTimeItem(
+                                          icon: Icons.calendar_today,
+                                          label: 'Tanggal',
+                                          value: _formatDate(_selectedDate),
+                                          onTap: _pickDate,
+                                        ),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: _buildCompactTimeItem(
+                                          icon: Icons.access_time,
+                                          label: 'Mulai',
+                                          value:
+                                              _formatTime(_selectedStartTime),
+                                          onTap: _pickStartTime,
+                                        ),
+                                      ),
+                                      if (!_isIndefinite) ...[
+                                        SizedBox(width: 8),
+                                        Expanded(
+                                          child: _buildCompactTimeItem(
+                                            icon: Icons.timelapse,
+                                            label: 'Selesai',
+                                            value:
+                                                _formatTime(_selectedEndTime),
+                                            onTap: _pickEndTime,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+
+                                  SizedBox(height: 12),
+                                  _buildIndefiniteSwitch(),
+                                ],
+                              ),
                             ),
                             SizedBox(height: isSmallScreen ? 16 : 20),
 
@@ -538,13 +721,15 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
                               decoration: InputDecoration(
                                 labelText: _loadingRooms
                                     ? 'Memuat Ruangan...'
-                                    : (_selectedCabangId == null
-                                        ? 'Pilih Cabang Terlebih Dahulu'
+                                    : (_selectedCabangId == null ||
+                                            _selectedDate == null ||
+                                            _selectedStartTime == null
+                                        ? 'Pilih Cabang & Waktu Dahulu'
                                         : (_rooms.isEmpty
                                             ? 'Tidak ada ruangan tersedia'
                                             : 'Pilih Ruangan')),
                                 prefixIcon: Icon(
-                                  Icons.meeting_room,
+                                  Icons.meeting_room_outlined,
                                   color: _selectedCabangId == null
                                       ? Colors.grey
                                       : const Color(0xFF4CAF50),
@@ -557,16 +742,44 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
                                 filled: _selectedCabangId == null,
                               ),
                               items: _rooms.map((e) {
-                                final id = e['id_room'] as int;
+                                final id = e['id_room'] as int?;
                                 final name = e['room']?.toString() ??
                                     'Ruangan Tanpa Nama';
+                                final statusId = e['status_ruangan_id'] as int?;
+                                final isAvailable = statusId == 1;
+                                final textColor =
+                                    isAvailable ? Colors.black87 : Colors.grey;
+
                                 return DropdownMenuItem<int>(
                                     value: id,
-                                    child: Text(name,
-                                        overflow: TextOverflow.ellipsis));
+                                    enabled:
+                                        isAvailable, // Menonaktifkan item jika tidak tersedia
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 12,
+                                          height: 12,
+                                          decoration: BoxDecoration(
+                                            color: isAvailable
+                                                ? Colors.green
+                                                : Colors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                            child: Text(
+                                          name,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(color: textColor),
+                                        )),
+                                      ],
+                                    ));
                               }).toList(),
                               onChanged: _loadingRooms ||
                                       _selectedCabangId == null ||
+                                      _selectedDate == null ||
+                                      _selectedStartTime == null ||
                                       _rooms.isEmpty
                                   ? null // Menonaktifkan dropdown
                                   : (int? newValue) {
@@ -576,6 +789,8 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
                                     },
                               validator: (v) {
                                 if (_selectedCabangId != null &&
+                                    _selectedDate != null &&
+                                    _selectedStartTime != null &&
                                     _rooms.isNotEmpty &&
                                     v == null) {
                                   return 'Pilih ruangan rapat';
@@ -675,66 +890,6 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
                                           fontWeight: FontWeight.normal),
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(height: isSmallScreen ? 16 : 20),
-
-                            // Jadwal Rapat
-                            Container(
-                              padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey[300]!),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Jadwal Rapat',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                          color: Color(0xFF4CAF50))),
-                                  const Divider(),
-                                  ListTile(
-                                    leading: const Icon(Icons.calendar_today,
-                                        color: Color(0xFF4CAF50)),
-                                    title: const Text('Tanggal'),
-                                    subtitle: Text(_formatDate(_selectedDate)),
-                                    onTap: _pickDate,
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(
-                                        Icons.access_time_filled,
-                                        color: Colors.green),
-                                    title: const Text('Jam Mulai'),
-                                    subtitle:
-                                        Text(_formatTime(_selectedStartTime)),
-                                    onTap: _pickStartTime,
-                                  ),
-                                  if (!_isIndefinite)
-                                    ListTile(
-                                      leading: const Icon(Icons.access_time,
-                                          color: Colors.red),
-                                      title: const Text('Jam Selesai'),
-                                      subtitle:
-                                          Text(_formatTime(_selectedEndTime)),
-                                      onTap: _pickEndTime,
-                                    ),
-                                  SwitchListTile(
-                                    title: const Text('Selesai tidak menentu'),
-                                    value: _isIndefinite,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _isIndefinite = value;
-                                        if (value) _selectedEndTime = null;
-                                      });
-                                    },
-                                    activeColor: const Color(0xFF4CAF50),
-                                    secondary: const Icon(Icons.help_outline,
-                                        color: Colors.grey),
                                   ),
                                 ],
                               ),

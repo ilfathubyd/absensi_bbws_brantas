@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:absen_app/services/auth_service.dart';
 import 'package:absen_app/config/api_config.dart'; // <-- Import config
 
 import '../models/rapat.dart';
+import 'package:path_provider/path_provider.dart'; // Untuk mendapatkan direktori penyimpanan
 
 class RapatApiService {
   static const String _baseUrl = ApiConfig.baseUrl;
@@ -97,14 +99,30 @@ class RapatApiService {
     throw Exception('Gagal memuat cabang');
   }
 
-  Future<List<Map<String, dynamic>>> fetchRoomsByCabang(int idCabang) async {
+  Future<List<Map<String, dynamic>>> fetchRoomsByCabang(
+    int idCabang, {
+    String? tanggal,
+    String? waktuStart,
+    String? waktuEnd,
+  }) async {
     final token = await _authService.getToken();
     if (token == null) {
       throw Exception('Tidak terautentikasi');
     }
 
-    // URL diubah untuk menargetkan endpoint baru
-    final uri = Uri.parse('$_baseUrl/cabang/$idCabang/room');
+    // PERBAIKAN: Menggunakan endpoint /room dengan filter cabang_id
+    // Ini lebih konsisten dengan REST API dan menggunakan method index() di RoomController.
+    final queryParams = <String, String>{
+      'cabang_id': idCabang.toString(),
+    };
+    if (tanggal != null) queryParams['tanggal'] = tanggal;
+    if (waktuStart != null) queryParams['waktu_start'] = waktuStart;
+    if (waktuEnd != null)
+      queryParams['waktu_end'] = waktuEnd; // <-- Pastikan ini sudah ada
+
+    // Menggunakan endpoint /room dan melewatkan parameter di query
+    final uri =
+        Uri.parse('$_baseUrl/room').replace(queryParameters: queryParams);
 
     final response = await http.get(uri, headers: {
       'Accept': 'application/json',
@@ -114,8 +132,8 @@ class RapatApiService {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
 
-      // Karena server sudah memfilter, kita tidak perlu filter 'status_ruang_id' di sini lagi.
-      // Kode menjadi lebih bersih dan efisien.
+      // Sekarang server mengirim semua ruangan, jadi frontend bisa menampilkan
+      // status untuk masing-masing ruangan (Tersedia/Tidak Tersedia).
       if (data is List) {
         return data.cast<Map<String, dynamic>>();
       }
@@ -241,6 +259,90 @@ class RapatApiService {
       } catch (_) {
         throw Exception('Gagal menolak rapat (status ${response.statusCode})');
       }
+    }
+  }
+
+  /// Menyelesaikan rapat dengan mengirim POST request ke endpoint /selesaikan.
+  Future<void> endRapat(String idRapat) async {
+    final token = await _authService.getToken();
+    if (token == null) {
+      throw Exception('Tidak terautentikasi');
+    }
+
+    final uri = Uri.parse('$_baseUrl/rapat/$idRapat/selesaikan');
+
+    final response = await http
+        .post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({}),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    if (response.statusCode != 200) {
+      try {
+        final err = jsonDecode(response.body);
+        final msg = (err is Map && err['message'] != null)
+            ? err['message'].toString()
+            : 'Gagal menyelesaikan rapat';
+        throw Exception(msg);
+      } catch (_) {
+        throw Exception(
+            'Gagal menyelesaikan rapat (status ${response.statusCode})');
+      }
+    }
+  }
+
+  /// Mengunduh laporan absensi rapat dalam format Excel.
+  /// Mengembalikan path file yang diunduh.
+  Future<String> downloadAbsensiRapat(String idRapat, String judulRapat) async {
+    final token = await _authService.getToken();
+    if (token == null) {
+      throw Exception('Tidak terautentikasi');
+    }
+
+    final uri = Uri.parse('$_baseUrl/rapat/$idRapat/export-absensi');
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Accept':
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // Menerima Excel
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(
+        const Duration(seconds: 60)); // Beri timeout lebih lama untuk download
+
+    if (response.statusCode == 200) {
+      // Dapatkan direktori penyimpanan lokal
+      final directory = await getApplicationDocumentsDirectory();
+      // Buat nama file yang unik dan deskriptif
+      final fileName =
+          'absensi_${judulRapat.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+      final filePath = '${directory.path}/$fileName';
+
+      // Simpan file ke penyimpanan lokal
+      final file = File(filePath);
+      await file.writeAsBytes(response.bodyBytes);
+
+      return filePath; // Mengembalikan path file yang berhasil diunduh
+    } else {
+      String errorMessage =
+          'Gagal mengunduh laporan absensi (status: ${response.statusCode})';
+      try {
+        // Coba parse body jika ada pesan error dari server
+        final err = jsonDecode(response.body);
+        if (err is Map && err['message'] != null) {
+          errorMessage = err['message'].toString();
+        }
+      } catch (_) {
+        // Abaikan jika body bukan JSON
+      }
+      throw Exception(errorMessage);
     }
   }
 

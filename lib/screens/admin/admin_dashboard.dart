@@ -92,12 +92,35 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
-  void _exportMeetingData(Rapat rapat) {
+  Future<void> _exportMeetingData(Rapat rapat) async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-          content:
-              Text("Export data rapat '${rapat.judul}' belum diimplementasi")),
+        content: Text("Mengekspor data rapat '${rapat.judul}'..."),
+        duration:
+            const Duration(seconds: 3), // Beri waktu untuk proses download
+        backgroundColor: Colors.blueAccent,
+      ),
     );
+
+    try {
+      final filePath = await _rapatApiService.downloadAbsensiRapat(
+          rapat.idRapat, rapat.judul);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                "Data rapat '${rapat.judul}' berhasil diekspor ke: $filePath"),
+            backgroundColor: Colors.green),
+      );
+      // Opsional: Anda bisa menambahkan kode di sini untuk membuka file yang diunduh.
+      // Misalnya, menggunakan package `open_filex`: `OpenFilex.open(filePath);`
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                "Gagal mengekspor data rapat '${rapat.judul}': ${e.toString()}"),
+            backgroundColor: Colors.red),
+      );
+    }
   }
 
   Future<void> _refreshData() async {
@@ -695,14 +718,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                             () => _exportMeetingData(m)),
                                         const SizedBox(width: 8),
                                       ],
-                                      _buildActionButton('QR', Icons.qr_code,
-                                          const Color(0xFF1565C0), () {
-                                        Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                                builder: (_) => MeetingQR(
-                                                    initialRapat: m)));
-                                      }),
+                                      if (m.statusRapat != 'Selesai') ...[
+                                        // Tambahkan kondisi ini
+                                        _buildActionButton('QR', Icons.qr_code,
+                                            const Color(0xFF1565C0), () {
+                                          Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                  builder: (_) => MeetingQR(
+                                                      initialRapat: m)));
+                                        }),
+                                      ],
                                     ]),
                                   ),
                                 ]),

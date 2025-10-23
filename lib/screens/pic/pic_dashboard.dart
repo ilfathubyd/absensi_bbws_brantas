@@ -8,6 +8,7 @@ import '../../services/auth_service.dart';
 import 'create_pengajuan.dart';
 import '../../Models/services/rapat_api_service.dart';
 import 'package:intl/intl.dart';
+import 'package:absen_app/screens/admin/meeting_qr.dart'; // Import halaman QR
 
 import 'pic_rapat_detail.dart'; // <-- Pastikan import ini ada
 
@@ -25,10 +26,12 @@ class _PICDashboardState extends State<PICDashboard> {
   String? _errorMessage;
   AppUser? _currentUser;
 
-  List<Rapat> _rapatDisetujui = [];    // Status: diterima
-  List<Rapat> _rapatBerlangsung = [];  // Status: berlangsung
-  List<Rapat> _rapatDiajukan = [];     // Status: menunggu
-  List<Rapat> _historyRapat = [];      // Status: selesai + ditolak
+  final RapatApiService _rapatApiService = RapatApiService();
+
+  List<Rapat> _rapatDisetujui = []; // Status: diterima
+  List<Rapat> _rapatBerlangsung = []; // Status: berlangsung
+  List<Rapat> _rapatDiajukan = []; // Status: menunggu
+  List<Rapat> _historyRapat = []; // Status: selesai + ditolak
 
   @override
   void initState() {
@@ -44,16 +47,17 @@ class _PICDashboardState extends State<PICDashboard> {
     });
 
     try {
-      final rapatService = RapatApiService();
       final results = await Future.wait([
         AuthService().getProfile(),
-        rapatService.fetchRapatByUser(),
+        _rapatApiService.fetchRapatByUser(),
       ]);
 
       _currentUser = results[0] as AppUser?;
-      final List<Map<String, dynamic>> rawRapatList = results[1] as List<Map<String, dynamic>>;
+      final List<Map<String, dynamic>> rawRapatList =
+          results[1] as List<Map<String, dynamic>>;
 
-      final List<Rapat> allRapat = rawRapatList.map((json) => Rapat.fromJson(json)).toList();
+      final List<Rapat> allRapat =
+          rawRapatList.map((json) => Rapat.fromJson(json)).toList();
       final DateTime now = DateTime.now();
 
       // KELOMPOKKAN RAPAT BERDASARKAN 4 STATUS (TETAP 4 TAB)
@@ -76,9 +80,12 @@ class _PICDashboardState extends State<PICDashboard> {
 
       _historyRapat = allRapat.where((r) {
         final status = r.statusRapat.toLowerCase();
-        final isSelesai = status.contains('selesai') || status.contains('completed');
-        final isDitolak = status.contains('ditolak') || status.contains('rejected');
-        final isSudahSelesai = r.waktuSelesai != null && r.waktuSelesai!.isBefore(now);
+        final isSelesai =
+            status.contains('selesai') || status.contains('completed');
+        final isDitolak =
+            status.contains('ditolak') || status.contains('rejected');
+        final isSudahSelesai =
+            r.waktuSelesai != null && r.waktuSelesai!.isBefore(now);
 
         return isSelesai || isDitolak || isSudahSelesai;
       }).toList();
@@ -88,16 +95,45 @@ class _PICDashboardState extends State<PICDashboard> {
       _rapatDisetujui.sort((a, b) => a.waktuMulai.compareTo(b.waktuMulai));
       _rapatBerlangsung.sort((a, b) => a.waktuMulai.compareTo(b.waktuMulai));
       _historyRapat.sort((a, b) => b.waktuMulai.compareTo(a.waktuMulai));
-
     } catch (e) {
       if (!mounted) return;
-      _errorMessage = "Gagal memuat data: ${e.toString().replaceAll('Exception: ', '')}";
+      _errorMessage =
+          "Gagal memuat data: ${e.toString().replaceAll('Exception: ', '')}";
     } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _exportMeetingData(Rapat rapat) async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Mengekspor data rapat '${rapat.judul}'..."),
+        duration: const Duration(seconds: 3),
+        backgroundColor: Colors.blueAccent,
+      ),
+    );
+
+    try {
+      final filePath = await _rapatApiService.downloadAbsensiRapat(
+          rapat.idRapat, rapat.judul);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text("Data rapat berhasil diekspor ke: $filePath"),
+            backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text("Gagal mengekspor data: ${e.toString()}"),
+            backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -128,46 +164,57 @@ class _PICDashboardState extends State<PICDashboard> {
     return _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _errorMessage != null
-        ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)))
-        : _rapatDisetujui.isEmpty && _rapatBerlangsung.isEmpty &&
-        _rapatDiajukan.isEmpty && _historyRapat.isEmpty
-        ? const Center(child: Text("Belum ada data rapat."))
-        : Column(
-      children: [
-        // Tab Bar dengan 4 tab (TETAP 4 TAB)
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-          child: Row(
-            children: [
-              _buildTabItem(0, 'Disetujui'),
-              _buildTabItem(1, 'Berlangsung'),
-              _buildTabItem(2, 'Diajukan'),
-              _buildTabItem(3, 'History'),
-            ],
-          ),
-        ),
-        // Content
-        Expanded(
-          child: _getCurrentTabContent(),
-        ),
-      ],
-    );
+            ? Center(
+                child: Text(_errorMessage!,
+                    style: const TextStyle(color: Colors.red)))
+            : _rapatDisetujui.isEmpty &&
+                    _rapatBerlangsung.isEmpty &&
+                    _rapatDiajukan.isEmpty &&
+                    _historyRapat.isEmpty
+                ? const Center(child: Text("Belum ada data rapat."))
+                : Column(
+                    children: [
+                      // Tab Bar dengan 4 tab (TETAP 4 TAB)
+                      Container(
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Row(
+                          children: [
+                            _buildTabItem(0, 'Disetujui'),
+                            _buildTabItem(1, 'Berlangsung'),
+                            _buildTabItem(2, 'Diajukan'),
+                            _buildTabItem(3, 'History'),
+                          ],
+                        ),
+                      ),
+                      // Content
+                      Expanded(
+                        child: _getCurrentTabContent(),
+                      ),
+                    ],
+                  );
   }
 
   Widget _getCurrentTabContent() {
     switch (_selectedTab) {
       case 0: // Rapat Disetujui (diterima)
-        return _buildRapatList(_rapatDisetujui, "Tidak ada rapat yang disetujui.");
+        return _buildRapatList(
+            _rapatDisetujui, "Tidak ada rapat yang disetujui.");
       case 1: // Rapat Berlangsung (HANYA status berlangsung)
-        return _buildRapatList(_rapatBerlangsung, "Tidak ada rapat yang berlangsung.");
+        return _buildRapatList(
+            _rapatBerlangsung, "Tidak ada rapat yang berlangsung.");
       case 2: // Rapat Diajukan (menunggu)
-        return _buildRapatList(_rapatDiajukan, "Tidak ada rapat yang diajukan.");
+        return _buildRapatList(
+            _rapatDiajukan, "Tidak ada rapat yang diajukan.");
       case 3: // History Rapat (selesai + ditolak)
         return _buildRapatList(_historyRapat, "Tidak ada history rapat.");
       default:
-        return _buildRapatList(_rapatDisetujui, "Tidak ada rapat yang disetujui.");
+        return _buildRapatList(
+            _rapatDisetujui, "Tidak ada rapat yang disetujui.");
     }
   }
 
@@ -237,14 +284,17 @@ class _PICDashboardState extends State<PICDashboard> {
                         children: [
                           IconButton(
                             onPressed: _loadData,
-                            icon: const Icon(Icons.refresh, color: Colors.white),
+                            icon:
+                                const Icon(Icons.refresh, color: Colors.white),
                           ),
                           CircleAvatar(
                             backgroundColor: const Color(0xFFFFD600),
                             radius: 18,
                             child: Text(
                               _currentUser?.name.isNotEmpty == true
-                                  ? _currentUser!.name.substring(0, 1).toUpperCase()
+                                  ? _currentUser!.name
+                                      .substring(0, 1)
+                                      .toUpperCase()
                                   : 'U',
                               style: const TextStyle(
                                 color: Colors.white,
@@ -297,11 +347,15 @@ class _PICDashboardState extends State<PICDashboard> {
                         Expanded(
                           child: Column(
                             children: [
-                              const Icon(Icons.calendar_today, color: Colors.white, size: 20),
+                              const Icon(Icons.calendar_today,
+                                  color: Colors.white, size: 20),
                               const SizedBox(height: 4),
                               Text(
-                                (_rapatDisetujui.length + _rapatBerlangsung.length +
-                                    _rapatDiajukan.length + _historyRapat.length).toString(),
+                                (_rapatDisetujui.length +
+                                        _rapatBerlangsung.length +
+                                        _rapatDiajukan.length +
+                                        _historyRapat.length)
+                                    .toString(),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 18,
@@ -318,13 +372,17 @@ class _PICDashboardState extends State<PICDashboard> {
                             ],
                           ),
                         ),
-                        Container(width: 1, height: 40, color: Colors.white.withOpacity(0.5)),
+                        Container(
+                            width: 1,
+                            height: 40,
+                            color: Colors.white.withOpacity(0.5)),
 
                         // Disetujui
                         Expanded(
                           child: Column(
                             children: [
-                              const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                              const Icon(Icons.check_circle,
+                                  color: Colors.white, size: 20),
                               const SizedBox(height: 4),
                               Text(
                                 _rapatDisetujui.length.toString(),
@@ -344,13 +402,17 @@ class _PICDashboardState extends State<PICDashboard> {
                             ],
                           ),
                         ),
-                        Container(width: 1, height: 40, color: Colors.white.withOpacity(0.5)),
+                        Container(
+                            width: 1,
+                            height: 40,
+                            color: Colors.white.withOpacity(0.5)),
 
                         // Berlangsung
                         Expanded(
                           child: Column(
                             children: [
-                              const Icon(Icons.play_circle, color: Colors.white, size: 20),
+                              const Icon(Icons.play_circle,
+                                  color: Colors.white, size: 20),
                               const SizedBox(height: 4),
                               Text(
                                 _rapatBerlangsung.length.toString(),
@@ -370,13 +432,17 @@ class _PICDashboardState extends State<PICDashboard> {
                             ],
                           ),
                         ),
-                        Container(width: 1, height: 40, color: Colors.white.withOpacity(0.5)),
+                        Container(
+                            width: 1,
+                            height: 40,
+                            color: Colors.white.withOpacity(0.5)),
 
                         // Menunggu
                         Expanded(
                           child: Column(
                             children: [
-                              const Icon(Icons.schedule, color: Colors.white, size: 20),
+                              const Icon(Icons.schedule,
+                                  color: Colors.white, size: 20),
                               const SizedBox(height: 4),
                               Text(
                                 _rapatDiajukan.length.toString(),
@@ -418,11 +484,13 @@ class _PICDashboardState extends State<PICDashboard> {
                         onPressed: () async {
                           await Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const CreatePengajuan()),
+                            MaterialPageRoute(
+                                builder: (_) => const CreatePengajuan()),
                           );
                           _loadData();
                         },
-                        icon: const Icon(Icons.add, size: 16, color: Colors.white),
+                        icon: const Icon(Icons.add,
+                            size: 16, color: Colors.white),
                         label: const Text(
                           'Buat Rapat',
                           style: TextStyle(
@@ -434,7 +502,8 @@ class _PICDashboardState extends State<PICDashboard> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1976D2),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           minimumSize: const Size(0, 32),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -535,7 +604,8 @@ class _PICDashboardState extends State<PICDashboard> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      DateFormat('d MMM y, HH:mm', 'id_ID').format(rapat.waktuMulai),
+                      DateFormat('d MMM y, HH:mm', 'id_ID')
+                          .format(rapat.waktuMulai),
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey[600],
@@ -589,8 +659,13 @@ class _PICDashboardState extends State<PICDashboard> {
                   backgroundColor: const Color(0xFF1976D2),
                   radius: 40,
                   child: Text(
-                    _currentUser!.name.isNotEmpty ? _currentUser!.name.substring(0, 1).toUpperCase() : 'P',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24),
+                    _currentUser!.name.isNotEmpty
+                        ? _currentUser!.name.substring(0, 1).toUpperCase()
+                        : 'P',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -605,7 +680,7 @@ class _PICDashboardState extends State<PICDashboard> {
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(builder: (_) => const LoginScreen()),
-                          (route) => false,
+                      (route) => false,
                     );
                   },
                   icon: const Icon(Icons.logout),
@@ -630,7 +705,8 @@ class _PICDashboardState extends State<PICDashboard> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('PIC Dashboard', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('PIC Dashboard',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 0,
         flexibleSpace: Container(
@@ -669,18 +745,22 @@ class _PICDashboardState extends State<PICDashboard> {
           ),
         ],
       ),
-      floatingActionButton: currentPageIndex == 0 ? FloatingActionButton.extended(
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const CreatePengajuan()),
-          );
-          _loadData();
-        },
-        backgroundColor: const Color(0xFFFFD600),
-        icon: const Icon(Icons.add, color: Colors.black87),
-        label: const Text('Ajukan Rapat', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-      ) : null,
+      floatingActionButton: currentPageIndex == 0
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CreatePengajuan()),
+                );
+                _loadData();
+              },
+              backgroundColor: const Color(0xFFFFD600),
+              icon: const Icon(Icons.add, color: Colors.black87),
+              label: const Text('Ajukan Rapat',
+                  style: TextStyle(
+                      color: Colors.black87, fontWeight: FontWeight.bold)),
+            )
+          : null,
       body: <Widget>[
         _buildRapatPage(),
         _buildDashboardPage(),
@@ -750,13 +830,16 @@ class _PICDashboardState extends State<PICDashboard> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        decoration: isSelesai || isDitolak ? TextDecoration.lineThrough : TextDecoration.none,
+                        decoration: isSelesai || isDitolak
+                            ? TextDecoration.lineThrough
+                            : TextDecoration.none,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -785,7 +868,7 @@ class _PICDashboardState extends State<PICDashboard> {
               _buildInfoRow(
                 Icons.access_time,
                 '${DateFormat('HH:mm').format(rapat.waktuMulai)} - '
-                    '${rapat.waktuSelesai != null ? "${DateFormat('HH:mm').format(rapat.waktuSelesai!)} WIB" : "Selesai"}',
+                '${rapat.waktuSelesai != null ? "${DateFormat('HH:mm').format(rapat.waktuSelesai!)} WIB" : "Selesai"}',
               ),
 
               // Ruangan
@@ -793,6 +876,49 @@ class _PICDashboardState extends State<PICDashboard> {
 
               // Nama Pengaju
               _buildInfoRow(Icons.person, 'Pengaju: ${rapat.namaPengaju}'),
+
+              const SizedBox(height: 16),
+              // Tombol Aksi
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Tombol Export hanya untuk rapat yang Selesai
+                  if (rapat.statusRapat == 'Selesai')
+                    ElevatedButton.icon(
+                      onPressed: () => _exportMeetingData(rapat),
+                      icon: const Icon(Icons.download, size: 16),
+                      label: const Text('Export'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+
+                  // Tombol QR untuk rapat yang belum selesai
+                  if (rapat.statusRapat != 'Selesai' &&
+                      rapat.statusRapat != 'Ditolak' &&
+                      rapat.statusRapat != 'Menunggu')
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => MeetingQR(initialRapat: rapat)),
+                        );
+                      },
+                      icon: const Icon(Icons.qr_code, size: 16),
+                      label: const Text('QR Code'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1976D2), // Warna biru
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
@@ -808,7 +934,9 @@ class _PICDashboardState extends State<PICDashboard> {
         children: [
           Icon(icon, size: 16, color: Colors.grey[600]),
           const SizedBox(width: 12),
-          Expanded(child: Text(text, style: TextStyle(fontSize: 14, color: Colors.grey[800]))),
+          Expanded(
+              child: Text(text,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[800]))),
         ],
       ),
     );

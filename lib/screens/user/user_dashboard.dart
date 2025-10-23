@@ -7,6 +7,7 @@ import 'package:absen_app/screens/login_screen.dart';
 import 'package:absen_app/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 // TODO: Pastikan AttendanceScreen di-uncomment dan constructornya menerima objek 'Rapat'
 // import 'package:absen_app/screens/user/attendance_screen.dart';
@@ -120,6 +121,18 @@ class _UserDashboardState extends State<UserDashboard> {
     _handleSessionExpired();
   }
 
+  // ============== FUNGSI SCAN QR ==============
+  void _openQRScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QRScannerScreen(
+          upcomingMeetings: _upcomingRapat,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const List<String> appBarTitles = ['Dashboard', 'Profil'];
@@ -165,10 +178,17 @@ class _UserDashboardState extends State<UserDashboard> {
         backgroundColor: const Color(0xFF1E3A8A),
         elevation: 0,
         actions: [
+          if (!widget.isGuestMode && _currentPageIndex == 0)
+            IconButton(
+              icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
+              onPressed: _openQRScanner,
+              tooltip: 'Scan QR Code',
+            ),
           if (!widget.isGuestMode)
             IconButton(
               icon: const Icon(Icons.refresh, color: Colors.white),
               onPressed: _loadData,
+              tooltip: 'Refresh Data',
             ),
         ],
       ),
@@ -277,6 +297,8 @@ class _UserDashboardState extends State<UserDashboard> {
           Container(width: 1, height: 60, color: Colors.white.withOpacity(0.3)),
           _buildStatItem(Icons.access_time,
               widget.isGuestMode ? 0 : _upcomingRapat.length, 'Akan Datang'),
+          Container(width: 1, height: 60, color: Colors.white.withOpacity(0.3)),
+          _buildStatItem(Icons.qr_code_scanner, 0, 'Scan QR'),
         ],
       ),
     );
@@ -434,6 +456,8 @@ class _UserDashboardState extends State<UserDashboard> {
               children: [
                 _buildDetailItem('Nama Rapat', rapat.judul),
                 const SizedBox(height: 12),
+                _buildDetailItem('ID Rapat', rapat.idRapat.toString()),
+                const SizedBox(height: 12),
                 _buildDetailItem('Ruangan', rapat.namaRuangan),
                 const SizedBox(height: 12),
                 _buildDetailItem('Tanggal', rapat.tanggalFormatted),
@@ -448,16 +472,13 @@ class _UserDashboardState extends State<UserDashboard> {
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Halaman absensi belum diaktifkan.')),
-                );
+                _openQRScanner();
               },
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1E3A8A),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8))),
-              child: const Text('Absen', style: TextStyle(color: Colors.white)),
+              child: const Text('Scan QR', style: TextStyle(color: Colors.white)),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -525,6 +546,7 @@ class _UserDashboardState extends State<UserDashboard> {
                 _buildCardInfoRow(Icons.meeting_room, rapat.namaRuangan),
                 _buildCardInfoRow(Icons.calendar_today,
                     '${rapat.tanggalFormatted} - ${rapat.waktuMulaiFormatted}'),
+                _buildCardInfoRow(Icons.qr_code, 'ID: ${rapat.idRapat}'),
               ],
             ),
           ),
@@ -582,6 +604,391 @@ class _UserDashboardState extends State<UserDashboard> {
                 style: TextStyle(fontSize: 14, color: Colors.grey)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ============== SCREEN SCANNER QR ==============
+class QRScannerScreen extends StatefulWidget {
+  final List<Rapat> upcomingMeetings;
+
+  const QRScannerScreen({super.key, required this.upcomingMeetings});
+
+  @override
+  State<QRScannerScreen> createState() => _QRScannerScreenState();
+}
+
+class _QRScannerScreenState extends State<QRScannerScreen> {
+  MobileScannerController cameraController = MobileScannerController();
+  bool _isScanning = true;
+  String? _scannedData;
+  Rapat? _selectedMeeting;
+
+  @override
+  void dispose() {
+    cameraController.dispose();
+    super.dispose();
+  }
+
+  void _onBarcodeScanned(BarcodeCapture barcodes) {
+    if (!_isScanning) return;
+
+    final barcode = barcodes.barcodes.first;
+    if (barcode.rawValue == null) {
+      return;
+    }
+
+    setState(() {
+      _isScanning = false;
+      _scannedData = barcode.rawValue!;
+    });
+
+    // Cari meeting berdasarkan ID dari QR code
+    _findMeetingFromQR(_scannedData!);
+  }
+
+  void _findMeetingFromQR(String qrData) {
+    // Reset state terlebih dahulu
+    setState(() {
+      _selectedMeeting = null;
+    });
+
+    try {
+      // Bersihkan QR data dari spasi atau karakter tidak perlu
+      final cleanQrData = qrData.trim();
+      final meetingId = int.tryParse(cleanQrData);
+      
+      if (meetingId == null) {
+        _showScanResult();
+        return;
+      }
+
+      // Cari meeting dengan loop manual (paling aman)
+      Rapat? foundMeeting;
+      for (final meeting in widget.upcomingMeetings) {
+        if (meeting.idRapat == meetingId) {
+          foundMeeting = meeting;
+          break;
+        }
+      }
+
+      setState(() {
+        _selectedMeeting = foundMeeting;
+      });
+    } catch (e) {
+      print('Error dalam memproses QR code: $e');
+      // Tetap lanjutkan untuk menampilkan hasil (walaupun error)
+    } finally {
+      _showScanResult();
+    }
+  }
+
+  void _showScanResult() {
+    // Pastikan context masih mounted
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Hasil Scan QR',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          content: _selectedMeeting != null
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Rapat Ditemukan!',
+                        style: TextStyle(
+                            color: Colors.green[700],
+                            fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Text('Judul: ${_selectedMeeting!.judul}',
+                        style: const TextStyle(fontWeight: FontWeight.w500)),
+                    Text('ID: ${_selectedMeeting!.idRapat}'),
+                    Text('Ruangan: ${_selectedMeeting!.namaRuangan}'),
+                    const SizedBox(height: 8),
+                    const Text('Silakan lakukan absensi.'),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                    const SizedBox(height: 12),
+                    const Text('QR Code tidak valid atau rapat tidak ditemukan.',
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                    if (_scannedData != null)
+                      Text('Data QR: $_scannedData',
+                          style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _resetScanner();
+              },
+              child: const Text('Scan Lagi'),
+            ),
+            if (_selectedMeeting != null)
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _processAttendance();
+                },
+                child: const Text('Absen Sekarang'),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _processAttendance() {
+    // TODO: Implement your attendance logic here
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Absensi untuk "${_selectedMeeting?.judul}" berhasil!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    Navigator.of(context).pop();
+  }
+
+  void _resetScanner() {
+    setState(() {
+      _isScanning = true;
+      _scannedData = null;
+      _selectedMeeting = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Scan QR Code'),
+        titleTextStyle: TextStyle(color: Colors.white),
+        backgroundColor: const Color(0xFF1E3A8A),
+        actions: [
+          IconButton(
+            color: Colors.white,
+            icon: ValueListenableBuilder(
+              valueListenable: cameraController.torchState,
+              builder: (context, state, child) {
+                switch (state) {
+                  case TorchState.off:
+                    return const Icon(Icons.flash_off);
+                  case TorchState.on:
+                    return const Icon(Icons.flash_on);
+                }
+              },
+            ),
+            onPressed: () => cameraController.toggleTorch(),
+          ),
+          IconButton(
+            color: Colors.white,
+            icon: ValueListenableBuilder(
+              valueListenable: cameraController.cameraFacingState,
+              builder: (context, state, child) {
+                switch (state) {
+                  case CameraFacing.front:
+                    return const Icon(Icons.camera_front);
+                  case CameraFacing.back:
+                    return const Icon(Icons.camera_rear);
+                }
+              },
+            ),
+            onPressed: () => cameraController.switchCamera(),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Judul dan instruksi
+              const Text(
+                'Scan QR Code Rapat',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E3A8A),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Arahkan kamera ke QR code yang tersedia di ruangan rapat',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Container untuk kamera dengan ukuran lebih kecil
+              Container(
+                width: double.infinity,
+                height: 300, // Tinggi kamera diperkecil
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: MobileScanner(
+                    controller: cameraController,
+                    onDetect: _onBarcodeScanned,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Informasi tambahan
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3F2FD),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF1E3A8A).withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Color(0xFF1E3A8A), size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Tips Scan QR Code:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E3A8A),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _buildTipItem('Pastikan QR code dalam kondisi baik dan tidak rusak'),
+                    _buildTipItem('Jaga jarak optimal 15-30 cm dari QR code'),
+                    _buildTipItem('Pastikan pencahayaan cukup'),
+                    _buildTipItem('Tunggu hingga scanner mendeteksi secara otomatis'),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Daftar rapat yang bisa di-scan
+              if (widget.upcomingMeetings.isNotEmpty) ...[
+                const Text(
+                  'Rapat yang Dapat Di-scan:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E3A8A),
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...widget.upcomingMeetings.take(3).map((meeting) => 
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E3A8A),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                meeting.judul,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'ID: ${meeting.idRapat} • ${meeting.namaRuangan}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ).toList(),
+                if (widget.upcomingMeetings.length > 3)
+                  Text(
+                    'dan ${widget.upcomingMeetings.length - 3} rapat lainnya...',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+              ],
+
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTipItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('• ', style: TextStyle(color: Color(0xFF1E3A8A))),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A8A)),
+            ),
+          ),
+        ],
       ),
     );
   }

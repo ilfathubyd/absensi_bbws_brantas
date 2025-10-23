@@ -24,6 +24,7 @@ dependencies:
   geolocator: ^10.1.0 # PERBAIKAN: Versi yang lebih stabil
   camera: ^0.10.5+5
   permission_handler: ^11.0.1
+  mobile_scanner: ^4.0.0
 
 dev_dependencies:
   flutter_test:
