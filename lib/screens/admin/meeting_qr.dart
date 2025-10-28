@@ -99,6 +99,15 @@ class _MeetingQRState extends State<MeetingQR> {
         backgroundColor: const Color(0xFF1565C0),
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
+        // PENAMBAHAN: Tombol refresh manual
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Perbarui QR Code',
+            // Nonaktifkan tombol saat sedang memuat
+            onPressed: _isLoading ? null : _fetchLatestRapatData,
+          ),
+        ],
       ),
       body: Center(
         child: Padding(
@@ -130,21 +139,7 @@ class _MeetingQRState extends State<MeetingQR> {
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF1565C0)),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.meeting_room_outlined,
-                            color: Colors.grey[600], size: 18),
-                        const SizedBox(width: 8),
-                        Text(_currentRapat.namaRuangan,
-                            style: TextStyle(
-                                fontSize:
-                                    18, // PERUBAHAN: Ukuran font diperbesar
-                                color: Colors.grey[700])),
-                      ],
-                    ),
-                    const SizedBox(height: 30), // PERUBAHAN: Spasi diperbesar
+                    const SizedBox(height: 24),
                     if (qrData != null && qrData.isNotEmpty)
                       QrImageView(
                         data: qrData,

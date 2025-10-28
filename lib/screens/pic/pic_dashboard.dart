@@ -9,6 +9,7 @@ import 'create_pengajuan.dart';
 import '../../Models/services/rapat_api_service.dart';
 import 'package:intl/intl.dart';
 import 'package:absen_app/screens/admin/meeting_qr.dart'; // Import halaman QR
+import 'package:shimmer/shimmer.dart';
 
 import 'pic_rapat_detail.dart'; // <-- Pastikan import ini ada
 
@@ -21,7 +22,7 @@ class PICDashboard extends StatefulWidget {
 
 class _PICDashboardState extends State<PICDashboard> {
   int _selectedTab = 0;
-  int currentPageIndex = 0;
+  int currentPageIndex = 1;
   bool _isLoading = true;
   String? _errorMessage;
   AppUser? _currentUser;
@@ -161,42 +162,45 @@ class _PICDashboardState extends State<PICDashboard> {
 
   // Widget untuk halaman Rapat
   Widget _buildRapatPage() {
-    return _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : _errorMessage != null
-            ? Center(
-                child: Text(_errorMessage!,
-                    style: const TextStyle(color: Colors.red)))
-            : _rapatDisetujui.isEmpty &&
-                    _rapatBerlangsung.isEmpty &&
-                    _rapatDiajukan.isEmpty &&
-                    _historyRapat.isEmpty
-                ? const Center(child: Text("Belum ada data rapat."))
-                : Column(
-                    children: [
-                      // Tab Bar dengan 4 tab (TETAP 4 TAB)
-                      Container(
-                        margin: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20)),
-                        child: Row(
-                          children: [
-                            _buildTabItem(0, 'Disetujui'),
-                            _buildTabItem(1, 'Berlangsung'),
-                            _buildTabItem(2, 'Diajukan'),
-                            _buildTabItem(3, 'History'),
-                          ],
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: _isLoading
+          ? _buildRapatListShimmer()
+          : _errorMessage != null
+              ? Center(
+                  child: Text(_errorMessage!,
+                      style: const TextStyle(color: Colors.red)))
+              : _rapatDisetujui.isEmpty &&
+                      _rapatBerlangsung.isEmpty &&
+                      _rapatDiajukan.isEmpty &&
+                      _historyRapat.isEmpty
+                  ? const Center(child: Text("Belum ada data rapat."))
+                  : Column(
+                      children: [
+                        // Tab Bar dengan 4 tab (TETAP 4 TAB)
+                        Container(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20)),
+                          child: Row(
+                            children: [
+                              _buildTabItem(0, 'Disetujui'),
+                              _buildTabItem(1, 'Berlangsung'),
+                              _buildTabItem(2, 'Diajukan'),
+                              _buildTabItem(3, 'History'),
+                            ],
+                          ),
                         ),
-                      ),
-                      // Content
-                      Expanded(
-                        child: _getCurrentTabContent(),
-                      ),
-                    ],
-                  );
+                        // Content
+                        Expanded(
+                          child: _getCurrentTabContent(),
+                        ),
+                      ],
+                    ),
+    );
   }
 
   Widget _getCurrentTabContent() {
@@ -231,293 +235,67 @@ class _PICDashboardState extends State<PICDashboard> {
         ),
       );
     }
-    return RefreshIndicator(
-      onRefresh: _loadData,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemCount: rapatList.length,
-        itemBuilder: (context, i) {
-          final Rapat rapat = rapatList[i];
-          return _buildRapatCard(rapat);
-        },
-      ),
+    return ListView.builder(
+      padding: const EdgeInsets.all(16.0),
+      itemCount: rapatList.length,
+      itemBuilder: (context, i) {
+        final Rapat rapat = rapatList[i];
+        return _buildRapatCard(rapat);
+      },
     );
   }
 
   // Widget untuk halaman Dashboard
-  Widget _buildDashboardPage() {
-    return Container(
-      color: const Color(0xFFF5F7FA),
+  Widget _buildDashboardShimmer() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
       child: Column(
         children: [
-          // Header Section dengan gradient biru
+          // Header
           Container(
-            width: double.infinity,
+            height: 150, // Sesuaikan dengan tinggi header asli
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF1976D2), Color(0xFF42A5F5)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: Colors.white,
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(30),
                 bottomRight: Radius.circular(30),
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 25),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Dashboard',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: _loadData,
-                            icon:
-                                const Icon(Icons.refresh, color: Colors.white),
-                          ),
-                          CircleAvatar(
-                            backgroundColor: const Color(0xFFFFD600),
-                            radius: 18,
-                            child: Text(
-                              _currentUser?.name.isNotEmpty == true
-                                  ? _currentUser!.name
-                                      .substring(0, 1)
-                                      .toUpperCase()
-                                  : 'U',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 15),
-                  Text(
-                    'Halo, ${_currentUser?.name ?? 'user'}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    _currentUser?.email ?? 'user@example.com',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
-
-          // Content Section
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // Card Statistik dengan 4 informasi (TETAP 4)
+                  // Statistik
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(16),
+                    height: 90, // Sesuaikan tinggi card statistik
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFD600),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Row(
-                      children: [
-                        // Total Rapat
-                        Expanded(
-                          child: Column(
-                            children: [
-                              const Icon(Icons.calendar_today,
-                                  color: Colors.white, size: 20),
-                              const SizedBox(height: 4),
-                              Text(
-                                (_rapatDisetujui.length +
-                                        _rapatBerlangsung.length +
-                                        _rapatDiajukan.length +
-                                        _historyRapat.length)
-                                    .toString(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const Text(
-                                'Total',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                            width: 1,
-                            height: 40,
-                            color: Colors.white.withOpacity(0.5)),
-
-                        // Disetujui
-                        Expanded(
-                          child: Column(
-                            children: [
-                              const Icon(Icons.check_circle,
-                                  color: Colors.white, size: 20),
-                              const SizedBox(height: 4),
-                              Text(
-                                _rapatDisetujui.length.toString(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const Text(
-                                'Disetujui',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                            width: 1,
-                            height: 40,
-                            color: Colors.white.withOpacity(0.5)),
-
-                        // Berlangsung
-                        Expanded(
-                          child: Column(
-                            children: [
-                              const Icon(Icons.play_circle,
-                                  color: Colors.white, size: 20),
-                              const SizedBox(height: 4),
-                              Text(
-                                _rapatBerlangsung.length.toString(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const Text(
-                                'Berlangsung',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                            width: 1,
-                            height: 40,
-                            color: Colors.white.withOpacity(0.5)),
-
-                        // Menunggu
-                        Expanded(
-                          child: Column(
-                            children: [
-                              const Icon(Icons.schedule,
-                                  color: Colors.white, size: 20),
-                              const SizedBox(height: 4),
-                              Text(
-                                _rapatDiajukan.length.toString(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const Text(
-                                'Menunggu',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  // Section Rapat Mendatang (Disetujui + Berlangsung)
+                  // Judul list
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Rapat Mendatang & Berlangsung',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const CreatePengajuan()),
-                          );
-                          _loadData();
-                        },
-                        icon: const Icon(Icons.add,
-                            size: 16, color: Colors.white),
-                        label: const Text(
-                          'Buat Rapat',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1976D2),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          minimumSize: const Size(0, 32),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
+                      Container(height: 20, width: 200, color: Colors.white),
+                      Container(height: 32, width: 100, color: Colors.white),
                     ],
                   ),
-
                   const SizedBox(height: 12),
-
-                  // Gabungan rapat disetujui dan berlangsung untuk dashboard
+                  // List
                   Expanded(
-                    child: _buildDashboardRapatList(),
+                    child: ListView.builder(
+                      itemCount: 3,
+                      itemBuilder: (context, index) => Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: Container(height: 70, color: Colors.white),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -525,6 +303,287 @@ class _PICDashboardState extends State<PICDashboard> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDashboardPage() {
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: _isLoading
+          ? _buildDashboardShimmer()
+          : Container(
+              color: const Color(0xFFF5F7FA),
+              child: Column(children: [
+                // Header Section dengan gradient biru
+                Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF1976D2), Color(0xFF42A5F5)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(30),
+                      bottomRight: Radius.circular(30),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 25),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Dashboard',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor: const Color(0xFFFFD600),
+                                  radius: 18,
+                                  child: Text(
+                                    _currentUser?.name.isNotEmpty == true
+                                        ? _currentUser!.name
+                                            .substring(0, 1)
+                                            .toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 15),
+                        Text(
+                          'Halo, ${_currentUser?.name ?? 'user'}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          _currentUser?.email ?? 'user@example.com',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Content Section
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        // Card Statistik dengan 4 informasi (TETAP 4)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFD600),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              // Total Rapat
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    const Icon(Icons.calendar_today,
+                                        color: Colors.white, size: 20),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      (_rapatDisetujui.length +
+                                              _rapatBerlangsung.length +
+                                              _rapatDiajukan.length +
+                                              _historyRapat.length)
+                                          .toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const Text(
+                                      'Total',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                  width: 1,
+                                  height: 40,
+                                  color: Colors.white.withOpacity(0.5)),
+
+                              // Disetujui
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    const Icon(Icons.check_circle,
+                                        color: Colors.white, size: 20),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _rapatDisetujui.length.toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const Text(
+                                      'Disetujui',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                  width: 1,
+                                  height: 40,
+                                  color: Colors.white.withOpacity(0.5)),
+
+                              // Berlangsung
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    const Icon(Icons.play_circle,
+                                        color: Colors.white, size: 20),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _rapatBerlangsung.length.toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const Text(
+                                      'Berlangsung',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                  width: 1,
+                                  height: 40,
+                                  color: Colors.white.withOpacity(0.5)),
+
+                              // Menunggu
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    const Icon(Icons.schedule,
+                                        color: Colors.white, size: 20),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _rapatDiajukan.length.toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const Text(
+                                      'Menunggu',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Section Rapat Mendatang (Disetujui + Berlangsung)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Rapat Mendatang & Berlangsung',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const CreatePengajuan()),
+                                );
+                                _loadData();
+                              },
+                              icon: const Icon(Icons.add,
+                                  size: 16, color: Colors.white),
+                              label: const Text(
+                                'Buat Rapat',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1976D2),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                minimumSize: const Size(0, 32),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Gabungan rapat disetujui dan berlangsung untuk dashboard
+                        Expanded(
+                          child: _buildDashboardRapatList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ]),
+            ),
     );
   }
 
@@ -791,6 +850,35 @@ class _PICDashboardState extends State<PICDashboard> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildRapatListShimmer() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16.0),
+        itemCount: 3, // Tampilkan beberapa placeholder
+        itemBuilder: (context, i) {
+          return Card(
+            elevation: 2,
+            margin: const EdgeInsets.only(bottom: 16),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                      width: double.infinity, height: 150, color: Colors.white)
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

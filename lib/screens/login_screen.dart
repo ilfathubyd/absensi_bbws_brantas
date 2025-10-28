@@ -1,8 +1,10 @@
-// lib/screens/login_screen.dart
+//login_screen.dart
 
 import 'package:absen_app/screens/admin/admin_dashboard.dart';
 import 'package:absen_app/screens/user/user_dashboard.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart'; // TAMBAHAN: Import untuk url_launcher
+import 'package:line_awesome_flutter/line_awesome_flutter.dart'; // TAMBAHAN: Import Line Awesome
 import 'package:absen_app/screens/pic/pic_dashboard.dart' show PICDashboard;
 import 'package:absen_app/Models/models/user.dart';
 import 'package:absen_app/services/auth_service.dart';
@@ -167,20 +169,232 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // FUNGSI UTAMA UNTUK RESPONSIVITAS
-  double _getResponsiveSize(
-      BuildContext context, double small, double medium, double large) {
-    final width = MediaQuery.of(context).size.width;
-    if (width < 350) return small; // Untuk layar sangat kecil
-    if (width < 600) return medium; // Untuk layar ponsel standar
-    return large; // Untuk layar besar / tablet
+  // TAMBAHAN: Method untuk membuka WhatsApp
+  Future<void> _launchWhatsApp(String phoneNumber) async {
+    final url = 'https://wa.me/$phoneNumber';
+    try {
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak dapat membuka WhatsApp'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // TAMBAHAN: Method untuk membuka email
+  Future<void> _launchEmail(String email) async {
+    final url = 'mailto:$email';
+    try {
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak dapat membuka aplikasi email'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // TAMBAHAN: Method untuk menampilkan popup contact person
+  void _showContactPersonPopup(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(LineAwesomeIcons.whatsapp,
+                  color: Color(
+                      0xFF1565C0)), // UBAH: Gunakan LineAwesome WhatsApp icon
+              SizedBox(width: 8),
+              Text(
+                'Contact Person',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1565C0),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Untuk bantuan teknis atau informasi lebih lanjut, hubungi:',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Admin IT Support
+              GestureDetector(
+                onTap: () => _launchWhatsApp('6281333753902'),
+                child: _buildContactItem(
+                  LineAwesomeIcons
+                      .whatsapp, // UBAH: Gunakan LineAwesome WhatsApp icon
+                  'Admin IT Support (Ilfath)',
+                  '+62 813-3375-3902',
+                  Colors.green,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Customer Service
+              GestureDetector(
+                onTap: () => _launchWhatsApp('6289659958740'),
+                child: _buildContactItem(
+                  LineAwesomeIcons
+                      .whatsapp, // UBAH: Gunakan LineAwesome WhatsApp icon
+                  'Customer Service (Aldi)',
+                  '+62 896-5995-8740',
+                  Colors.green,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Email Support
+              GestureDetector(
+                onTap: () => _launchEmail('support@absenapp.com'),
+                child: _buildContactItem(
+                  Icons.email,
+                  'Email Support',
+                  'support@absenapp.com',
+                  Colors.blue,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.green[100]!),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(LineAwesomeIcons.whatsapp,
+                        color: Colors.green,
+                        size: 16), // UBAH: Gunakan LineAwesome WhatsApp icon
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Tekan nomor untuk langsung chat di WhatsApp',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Tutup',
+                style: TextStyle(
+                  color: Color(0xFF1565C0),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // TAMBAHAN: Widget untuk item contact (diperbarui)
+  Widget _buildContactItem(
+      IconData icon, String title, String subtitle, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[300]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: color,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.arrow_forward_ios,
+            color: color,
+            size: 16,
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 350;
-
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -198,94 +412,81 @@ class _LoginScreenState extends State<LoginScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                // PERUBAHAN: Padding responsif
-                horizontal: _getResponsiveSize(context, 16, 20, 24),
-                vertical: _getResponsiveSize(context, 8, 16, 20),
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: isSmallScreen ? 320 : 400,
-                  minHeight: MediaQuery.of(context).size.height -
-                      MediaQuery.of(context).padding.vertical,
+                constraints: const BoxConstraints(
+                  maxWidth: 320, // DIKECILKAN dari 400
                 ),
                 child: Card(
-                  elevation: 12,
+                  elevation: 8, // DIKURANGI dari 12
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius:
+                        BorderRadius.circular(16), // DIKECILKAN dari 20
                   ),
                   color: Colors.white,
                   child: Padding(
-                    // PERUBAHAN: Padding dalam card responsif
-                    padding:
-                        EdgeInsets.all(_getResponsiveSize(context, 16, 24, 32)),
+                    padding: const EdgeInsets.all(20), // DIKECILKAN dari 24/32
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Logo
+                        // Logo - DIKECILKAN
                         Container(
-                          // PERUBAHAN: Ukuran logo responsif
-                          height: _getResponsiveSize(context, 80, 90, 100),
-                          width: _getResponsiveSize(context, 80, 90, 100),
+                          height: 70, // DIKECILKAN dari 80-100
+                          width: 70, // DIKECILKAN dari 80-100
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFC107),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
                                 color: const Color(0xFFFFC107).withOpacity(0.3),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
+                                blurRadius: 8, // DIKURANGI dari 10
+                                offset: const Offset(0, 3), // DIKURANGI dari 4
                               ),
                             ],
                           ),
                           child: ClipOval(
                             child: Padding(
-                              padding: const EdgeInsets.all(8.0),
+                              padding: const EdgeInsets.all(6.0), // DIKECILKAN
                               child: Image.asset(
-                                'images/logo1.png',
+                                'assets/images/logo1.png',
                                 fit: BoxFit.contain,
                                 errorBuilder: (context, error, stackTrace) {
                                   return const Icon(
                                     Icons.person,
                                     color: Colors.white,
-                                    size: 40,
+                                    size: 30, // DIKECILKAN dari 40
                                   );
                                 },
                               ),
                             ),
                           ),
                         ),
-                        // PERUBAHAN: Jarak vertikal responsif
-                        SizedBox(
-                            height: _getResponsiveSize(context, 16, 20, 24)),
+                        const SizedBox(height: 16), // DIKECILKAN
 
                         // Title
                         Text(
                           'Login Absensi',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            // PERUBAHAN: Ukuran font responsif
-                            fontSize: _getResponsiveSize(context, 20, 23, 25),
+                            fontSize: 20, // DIKECILKAN dari 20-25
                             fontWeight: FontWeight.bold,
                             color: const Color(0xFF1565C0),
                           ),
                         ),
-                        SizedBox(height: _getResponsiveSize(context, 4, 6, 8)),
+                        const SizedBox(height: 4), // DIKECILKAN
 
                         // Subtitle
                         Text(
                           'Silakan masuk untuk melanjutkan',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            // PERUBAHAN: Ukuran font responsif
-                            fontSize: _getResponsiveSize(context, 12, 13, 14),
+                            fontSize: 12, // DIKECILKAN dari 12-14
                             color: Colors.grey[600],
                           ),
                         ),
-                        SizedBox(
-                            height: _getResponsiveSize(context, 20, 28, 32)),
+                        const SizedBox(height: 20), // DIKECILKAN
 
                         // Username field
                         TextField(
@@ -293,21 +494,23 @@ class _LoginScreenState extends State<LoginScreen> {
                           keyboardType: TextInputType.text,
                           decoration: InputDecoration(
                             labelText: 'Username',
-                            prefixIcon: Icon(
+                            prefixIcon: const Icon(
                               Icons.person,
-                              color: const Color(0xFF1565C0),
-                              // PERUBAHAN: Ukuran ikon responsif
-                              size: _getResponsiveSize(context, 18, 20, 22),
+                              color: Color(0xFF1565C0),
+                              size: 18, // DIKECILKAN
                             ),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius:
+                                  BorderRadius.circular(10), // DIKECILKAN
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius:
+                                  BorderRadius.circular(10), // DIKECILKAN
                               borderSide: BorderSide(color: Colors.grey[300]!),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius:
+                                  BorderRadius.circular(10), // DIKECILKAN
                               borderSide: const BorderSide(
                                 color: Color(0xFF1565C0),
                                 width: 2,
@@ -315,31 +518,37 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             filled: true,
                             fillColor: Colors.grey[50],
+                            contentPadding: const EdgeInsets.symmetric(
+                              // DIKECILKAN
+                              horizontal: 12,
+                              vertical: 14,
+                            ),
                           ),
                         ),
-                        SizedBox(
-                            height: _getResponsiveSize(context, 12, 14, 16)),
+                        const SizedBox(height: 12), // DIKECILKAN
 
                         // Password field
                         TextField(
                           controller: _passCtrl,
                           decoration: InputDecoration(
                             labelText: 'Password',
-                            prefixIcon: Icon(
+                            prefixIcon: const Icon(
                               Icons.lock,
-                              color: const Color(0xFF1565C0),
-                              // PERUBAHAN: Ukuran ikon responsif
-                              size: _getResponsiveSize(context, 18, 20, 22),
+                              color: Color(0xFF1565C0),
+                              size: 18, // DIKECILKAN
                             ),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius:
+                                  BorderRadius.circular(10), // DIKECILKAN
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius:
+                                  BorderRadius.circular(10), // DIKECILKAN
                               borderSide: BorderSide(color: Colors.grey[300]!),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius:
+                                  BorderRadius.circular(10), // DIKECILKAN
                               borderSide: const BorderSide(
                                 color: Color(0xFF1565C0),
                                 width: 2,
@@ -347,16 +556,19 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             filled: true,
                             fillColor: Colors.grey[50],
+                            contentPadding: const EdgeInsets.symmetric(
+                              // DIKECILKAN
+                              horizontal: 12,
+                              vertical: 14,
+                            ),
                           ),
                           obscureText: true,
                         ),
-                        SizedBox(
-                            height: _getResponsiveSize(context, 20, 24, 28)),
+                        const SizedBox(height: 20), // DIKECILKAN
 
                         // Tombol Login Utama
                         Container(
-                          // PERUBAHAN: Tinggi tombol responsif
-                          height: _getResponsiveSize(context, 45, 48, 50),
+                          height: 44, // DIKECILKAN dari 45-50
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               colors: [
@@ -364,12 +576,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Color(0xFFFFB300),
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius:
+                                BorderRadius.circular(10), // DIKECILKAN
                             boxShadow: [
                               BoxShadow(
                                 color: const Color(0xFFFFC107).withOpacity(0.4),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
+                                blurRadius: 6, // DIKURANGI dari 8
+                                offset: const Offset(0, 3), // DIKURANGI dari 4
                               ),
                             ],
                           ),
@@ -379,41 +592,35 @@ class _LoginScreenState extends State<LoginScreen> {
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius:
+                                    BorderRadius.circular(10), // DIKECILKAN
                               ),
                             ),
                             child: _isLoading
-                                ? SizedBox(
-                                    // PERUBAHAN: Ukuran loading indicator responsif
-                                    width:
-                                        _getResponsiveSize(context, 20, 22, 24),
-                                    height:
-                                        _getResponsiveSize(context, 20, 22, 24),
-                                    child: const CircularProgressIndicator(
+                                ? const SizedBox(
+                                    width: 20, // DIKECILKAN
+                                    height: 20, // DIKECILKAN
+                                    child: CircularProgressIndicator(
                                       color: Colors.white,
-                                      strokeWidth: 3,
+                                      strokeWidth: 2.5, // DIKURANGI
                                     ),
                                   )
                                 : Text(
                                     'LOGIN',
                                     style: TextStyle(
                                       color: Colors.white,
-                                      // PERUBAHAN: Ukuran font tombol responsif
-                                      fontSize: _getResponsiveSize(
-                                          context, 14, 15, 16),
+                                      fontSize: 14, // DIKECILKAN
                                       fontWeight: FontWeight.bold,
-                                      letterSpacing: 1,
+                                      letterSpacing: 0.8, // DIKURANGI
                                     ),
                                   ),
                           ),
                         ),
 
                         // Tombol Login Sebagai Guest
-                        SizedBox(
-                            height: _getResponsiveSize(context, 12, 14, 16)),
+                        const SizedBox(height: 12), // DIKECILKAN
                         Container(
-                          // PERUBAHAN: Tinggi tombol responsif
-                          height: _getResponsiveSize(context, 45, 48, 50),
+                          height: 44, // DIKECILKAN dari 45-50
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               colors: [
@@ -421,12 +628,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Color(0xFF9E9E9E),
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius:
+                                BorderRadius.circular(10), // DIKECILKAN
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.grey.withOpacity(0.4),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
+                                blurRadius: 6, // DIKURANGI dari 8
+                                offset: const Offset(0, 3), // DIKURANGI dari 4
                               ),
                             ],
                           ),
@@ -436,45 +644,37 @@ class _LoginScreenState extends State<LoginScreen> {
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius:
+                                    BorderRadius.circular(10), // DIKECILKAN
                               ),
                             ),
                             child: _isGuestLoading
-                                ? SizedBox(
-                                    // PERUBAHAN: Ukuran loading indicator responsif
-                                    width:
-                                        _getResponsiveSize(context, 20, 22, 24),
-                                    height:
-                                        _getResponsiveSize(context, 20, 22, 24),
-                                    child: const CircularProgressIndicator(
+                                ? const SizedBox(
+                                    width: 20, // DIKECILKAN
+                                    height: 20, // DIKECILKAN
+                                    child: CircularProgressIndicator(
                                       color: Colors.white,
-                                      strokeWidth: 3,
+                                      strokeWidth: 2.5, // DIKURANGI
                                     ),
                                   )
                                 : Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(
+                                      const Icon(
                                         Icons.person_outline,
                                         color: Colors.white,
-                                        // PERUBAHAN: Ukuran ikon responsif
-                                        size: _getResponsiveSize(
-                                            context, 16, 18, 20),
+                                        size: 16, // DIKECILKAN
                                       ),
-                                      SizedBox(
-                                          width: _getResponsiveSize(
-                                              context, 6, 7, 8)),
+                                      const SizedBox(width: 6), // DIKECILKAN
                                       Flexible(
                                         child: Text(
                                           'LOGIN SEBAGAI GUEST',
                                           style: TextStyle(
                                             color: Colors.white,
-                                            // PERUBAHAN: Ukuran font tombol responsif
-                                            fontSize: _getResponsiveSize(
-                                                context, 12, 14, 16),
+                                            fontSize: 12, // DIKECILKAN
                                             fontWeight: FontWeight.bold,
-                                            letterSpacing: 0.5,
+                                            letterSpacing: 0.3, // DIKURANGI
                                           ),
                                           textAlign: TextAlign.center,
                                           overflow: TextOverflow.ellipsis,
@@ -482,6 +682,58 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     ],
                                   ),
+                          ),
+                        ),
+
+                        // TAMBAHAN: Watermark Contact Person
+                        const SizedBox(height: 16),
+                        GestureDetector(
+                          onTap: () => _showContactPersonPopup(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Colors.grey[300]!,
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.white,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.contact_support,
+                                  color: Colors.grey[600],
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Butuh Bantuan? Hubungi Kami',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // TAMBAHAN: Copyright/Version Info
+                        const SizedBox(height: 12),
+                        Text(
+                          'v1.0.0 © 2024 Absen App',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 10,
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
                       ],

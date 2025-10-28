@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:absen_app/services/auth_service.dart';
 import 'package:absen_app/config/api_config.dart'; // <-- Import config
 
 import '../models/rapat.dart';
 import 'package:path_provider/path_provider.dart'; // Untuk mendapatkan direktori penyimpanan
+import 'package:permission_handler/permission_handler.dart';
 
 class RapatApiService {
   static const String _baseUrl = ApiConfig.baseUrl;
@@ -49,8 +51,8 @@ class RapatApiService {
             'waktu_start': waktuStart,
             if (waktuEnd != null) 'waktu_end': waktuEnd,
             if (desc != null) 'desc': desc,
-            if (idUserPengaju != null)
-              'id_user_pengaju': idUserPengaju, // Kirim ID pengaju
+            'id_user_pengaju':
+                idUserPengaju, // Selalu kirim ID pengaju yang dipilih dari UI
             // PERBAIKAN KRUSIAL: Menggunakan key 'divisions' yang mungkin diharapkan backend
             if (divisions != null && divisions.isNotEmpty)
               'divisions': divisions,
@@ -318,16 +320,56 @@ class RapatApiService {
         const Duration(seconds: 60)); // Beri timeout lebih lama untuk download
 
     if (response.statusCode == 200) {
-      // Dapatkan direktori penyimpanan lokal
-      final directory = await getApplicationDocumentsDirectory();
-      // Buat nama file yang unik dan deskriptif
+      Directory? directory;
+      if (Platform.isAndroid) {
+        final deviceInfo = await DeviceInfoPlugin().androidInfo;
+        // Untuk Android 10 (SDK 29) ke atas, tidak perlu izin khusus
+        // untuk menyimpan ke folder Downloads publik.
+        // Untuk Android 9 (SDK 28) ke bawah, kita perlu izin storage.
+        if (deviceInfo.version.sdkInt <= 28) {
+          if (await Permission.storage.request().isGranted) {
+            directory = await getExternalStorageDirectory();
+          } else {
+            throw Exception('Izin penyimpanan ditolak.');
+          }
+        } else {
+          // getExternalStoragePublicDirectory(Downloads) lebih cocok,
+          // tapi getExternalStorageDirectory() seringkali cukup dan lebih konsisten.
+          // Kita akan coba membuat subdirektori 'Download' jika tidak ada.
+          directory = await getExternalStorageDirectory();
+        }
+      } else if (Platform.isIOS) {
+        // Di iOS, simpan ke direktori dokumen aplikasi yang bisa diakses via Files app.
+        directory = await getApplicationDocumentsDirectory();
+      }
+
+      if (directory == null) {
+        throw Exception("Tidak dapat menemukan direktori penyimpanan.");
+      }
+
+      // Di Android, kita ingin path ke folder Downloads.
+      // Path dari getExternalStorageDirectory() adalah /storage/emulated/0/Android/data/<package_name>/files
+      // Kita akan navigasi ke atas untuk mendapatkan path /storage/emulated/0/Download
+      String downloadsPath = directory.path;
+      if (Platform.isAndroid) {
+        // Mencari path yang lebih umum untuk folder Download
+        downloadsPath = "/storage/emulated/0/Download";
+        final downloadsDir = Directory(downloadsPath);
+        // Pastikan folder Download ada, jika tidak, gunakan path default
+        if (!await downloadsDir.exists()) {
+          // Fallback ke direktori eksternal aplikasi jika /Download tidak ada
+          downloadsPath = directory.path;
+        }
+      }
+
       final fileName =
           'absensi_${judulRapat.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.xlsx';
-      final filePath = '${directory.path}/$fileName';
-
-      // Simpan file ke penyimpanan lokal
+      final filePath = '$downloadsPath/$fileName';
       final file = File(filePath);
       await file.writeAsBytes(response.bodyBytes);
+
+      // (Opsional) Langsung buka file setelah diunduh
+     
 
       return filePath; // Mengembalikan path file yang berhasil diunduh
     } else {
@@ -539,5 +581,43 @@ class RapatApiService {
           'Akses ditolak. Anda tidak memiliki izin untuk melihat daftar pengguna.');
     }
     throw Exception('Gagal memuat data user (status: ${response.statusCode})');
+  }
+
+  /// Mengirimkan permintaan absensi untuk rapat tertentu.
+  /// Menggunakan QR token yang didapat dari pemindaian.
+  Future<Map<String, dynamic>> attendRapat(String qrToken) async {
+    final token = await _authService.getToken();
+    if (token == null) {
+      throw Exception('Tidak terautentikasi');
+    }
+
+    // Endpoint untuk absensi, diasumsikan menggunakan metode POST
+    // dan menerima qr_token di body.
+    final uri = Uri.parse('$_baseUrl/rapat/scan-absen');
+
+    final response = await http
+        .post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'scanned_token': qrToken,
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    final responseBody = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return responseBody as Map<String, dynamic>;
+    } else {
+      // Coba ekstrak pesan error dari server
+      final errorMessage = responseBody['message']?.toString() ??
+          'Gagal melakukan absensi (status ${response.statusCode})';
+      throw Exception(errorMessage);
+    }
   }
 }

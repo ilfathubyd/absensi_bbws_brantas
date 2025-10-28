@@ -340,6 +340,8 @@ class _CreatePengajuanState extends State<CreatePengajuan> {
         desc: _descriptionCtrl.text.trim().isEmpty
             ? null
             : _descriptionCtrl.text.trim(),
+        // PERBAIKAN: Kirim ID user yang sedang login sebagai pengaju
+        idUserPengaju: _currentUser!.id_user,
         divisions:
             divisionIds, // Mengirim ID divisi dengan parameter yang benar ('divisions')
       );

@@ -2,8 +2,8 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:absen_app/Models/models/user.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:absen_app/config/api_config.dart'; // <-- Import config
 
 class AuthService {
@@ -11,6 +11,10 @@ class AuthService {
 
   Future<AppUser> login(String username, String password) async {
     final url = Uri.parse('$_baseUrl/login');
+
+    // Tambahkan instance secure storage
+    const storage = FlutterSecureStorage();
+    const tokenKey = 'auth_token';
 
     try {
 // PERBAIKAN: Tambah timeout untuk menghindari hanging
@@ -40,8 +44,7 @@ class AuthService {
         }
 
 // Simpan token
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token', data['token']);
+        await storage.write(key: tokenKey, value: data['token']);
 
 // PERBAIKAN: Debug print untuk melihat data user
         print('User data from API: ${data['user']}');
@@ -80,12 +83,19 @@ class AuthService {
 
 // PERBAIKAN: Method untuk get token
   Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    const storage = FlutterSecureStorage();
+    return await storage.read(key: 'auth_token');
+  }
+
+  // PENAMBAHAN: Method untuk cek status login
+  Future<bool> isLoggedIn() async {
+    final token = await getToken();
+    return token != null;
   }
 
 // PERBAIKAN: Method untuk logout
   Future<void> logout() async {
+    const storage = FlutterSecureStorage();
     try {
       final token = await getToken();
       if (token != null) {
@@ -104,8 +114,7 @@ class AuthService {
       print('Logout error: $e');
     } finally {
 // Clear local storage
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('auth_token');
+      await storage.delete(key: 'auth_token');
     }
   }
 
