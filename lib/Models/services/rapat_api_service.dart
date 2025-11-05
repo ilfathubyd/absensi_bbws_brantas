@@ -155,7 +155,7 @@ class RapatApiService {
     if (token == null) {
       throw Exception('Tidak terautentikasi');
     }
-    final uri = Uri.parse('$_baseUrl/rapat/saya');
+    final uri = Uri.parse('$_baseUrl/absensi/history');
     final response = await http.get(uri, headers: {
       'Accept': 'application/json',
       'Authorization': 'Bearer $token',
@@ -171,7 +171,7 @@ class RapatApiService {
       }
       throw Exception('Format data rapat tidak dikenali');
     }
-    throw Exception('Gagal memuat rapat');
+    throw Exception('Gagal memuat riwayat absensi');
   }
 
   // PERBAIKAN: Method ini duplikat dan tidak mengirim token. Sebaiknya dihapus dan gunakan fetchRapatByUser.
@@ -188,6 +188,30 @@ class RapatApiService {
     } else {
       throw Exception("Gagal memuat rapat saya (${response.statusCode})");
     }
+  }
+
+  /// Mengambil daftar rapat yang terkait dengan PIC yang sedang login.
+  Future<List<Map<String, dynamic>>> fetchRapatForPIC() async {
+    final token = await _authService.getToken();
+    if (token == null) {
+      throw Exception('Tidak terautentikasi');
+    }
+
+    final uri = Uri.parse('$_baseUrl/rapat/saya');
+    final response = await http.get(uri, headers: {
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+    }).timeout(const Duration(seconds: 30));
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is List) {
+        return data.cast<Map<String, dynamic>>();
+      }
+      throw Exception('Format data rapat PIC tidak dikenali');
+    }
+    throw Exception(
+        'Gagal memuat rapat untuk PIC (status: ${response.statusCode})');
   }
 
   /// Menyetujui pengajuan rapat dengan mengirim POST request ke endpoint /setujui.

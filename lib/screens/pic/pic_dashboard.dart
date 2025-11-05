@@ -50,7 +50,7 @@ class _PICDashboardState extends State<PICDashboard> {
     try {
       final results = await Future.wait([
         AuthService().getProfile(),
-        _rapatApiService.fetchRapatByUser(),
+        _rapatApiService.fetchRapatForPIC(), // Use the new method for PIC
       ]);
 
       _currentUser = results[0] as AppUser?;

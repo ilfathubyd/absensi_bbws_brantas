@@ -92,23 +92,42 @@ class _UserDashboardState extends State<UserDashboard> {
   }
 
   void _handleSessionExpired() {
-    if (!mounted) return;
+    // Pastikan hanya dijalankan sekali dan widget masih ada
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+
+    // Tampilkan snackbar
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Sesi Anda telah berakhir. Silakan login kembali.'),
         backgroundColor: Colors.red,
       ),
     );
-    Navigator.pushAndRemoveUntil(
-      context,
+
+    // Navigasi ke halaman login dan hapus semua halaman sebelumnya.
+    // Ini memastikan state lama dari dashboard tidak akan muncul kembali.
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
     );
   }
 
   void _logout() async {
+    // Tampilkan dialog loading untuk mencegah interaksi pengguna
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    // Tunggu proses logout dari AuthService selesai
     await _authService.logout();
-    _handleSessionExpired();
+
+    // Setelah logout selesai, tutup dialog loading
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // Tutup dialog loading
+
+    // Panggil handleSessionExpired untuk navigasi
+    _handleSessionExpired(); // Navigasi ke halaman login
   }
 
   // ============== FUNGSI SCAN QR ==============
@@ -396,8 +415,30 @@ class _UserDashboardState extends State<UserDashboard> {
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1E293B))),
           const SizedBox(height: 16),
-          if (widget.isGuestMode)
-            _buildGuestEmptyState()
+          if (widget.isGuestMode) _buildGuestEmptyState(),
+          if (_errorMessage != null && !widget.isGuestMode)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+              child: Center(
+                child: Column(
+                  children: [
+                    const Icon(Icons.cloud_off,
+                        size: 64, color: Colors.redAccent),
+                    const SizedBox(height: 16),
+                    const Text('Gagal Memuat Data',
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.redAccent)),
+                    const SizedBox(height: 8),
+                    Text(_errorMessage!,
+                        style:
+                            const TextStyle(fontSize: 14, color: Colors.grey),
+                        textAlign: TextAlign.center),
+                  ],
+                ),
+              ),
+            )
           else if (_historyRapat.isEmpty)
             _buildEmptyState()
           else
@@ -535,18 +576,6 @@ class _UserDashboardState extends State<UserDashboard> {
             ),
           ),
           actions: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _openQRScanner();
-              },
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A8A),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8))),
-              child:
-                  const Text('Scan QR', style: TextStyle(color: Colors.white)),
-            ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Tutup',
