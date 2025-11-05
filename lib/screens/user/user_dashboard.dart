@@ -30,8 +30,8 @@ class _UserDashboardState extends State<UserDashboard> {
 
   // --- State untuk Data ---
   AppUser? _currentUser;
-  List<Rapat> _allRapat = [];
-  List<Rapat> _upcomingRapat = [];
+  List<Map<String, dynamic>> _historyRapat =
+      []; // Menggunakan Map untuk fleksibilitas
 
   // --- Services ---
   final AuthService _authService = AuthService();
@@ -72,10 +72,8 @@ class _UserDashboardState extends State<UserDashboard> {
 
       _currentUser = results[0] as AppUser?;
       final rapatData = results[1] as List<Map<String, dynamic>>;
-      _allRapat = rapatData.map((json) => Rapat.fromJson(json)).toList();
-
-      _filterRapat();
-
+      _historyRapat =
+          rapatData; // Langsung simpan data dari API (list of attendance)
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -91,16 +89,6 @@ class _UserDashboardState extends State<UserDashboard> {
         _handleSessionExpired();
       }
     }
-  }
-
-  void _filterRapat() {
-    final now = DateTime.now();
-    _upcomingRapat = _allRapat.where((r) {
-      final status = r.statusRapat.toLowerCase();
-      return (status == 'disetujui' || status == 'berlangsung') &&
-          r.waktuMulai.isAfter(now);
-    }).toList();
-    _upcomingRapat.sort((a, b) => a.waktuMulai.compareTo(b.waktuMulai));
   }
 
   void _handleSessionExpired() {
@@ -129,7 +117,7 @@ class _UserDashboardState extends State<UserDashboard> {
       context,
       MaterialPageRoute(
         builder: (context) => QRScannerScreen(
-          upcomingMeetings: _upcomingRapat,
+          upcomingMeetings: const [], // Tidak ada lagi rapat akan datang di sini
         ),
       ),
     );
@@ -366,12 +354,11 @@ class _UserDashboardState extends State<UserDashboard> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildStatItem(Icons.calendar_today,
-              widget.isGuestMode ? 0 : _allRapat.length, 'Total Rapat'),
+              widget.isGuestMode ? 0 : _historyRapat.length, 'Total Absen'),
           Container(width: 1, height: 60, color: Colors.white.withOpacity(0.3)),
-          _buildStatItem(Icons.access_time,
-              widget.isGuestMode ? 0 : _upcomingRapat.length, 'Akan Datang'),
+          _buildStatItem(Icons.history, _historyRapat.length, 'Riwayat'),
           Container(width: 1, height: 60, color: Colors.white.withOpacity(0.3)),
-          _buildStatItem(Icons.qr_code_scanner, 0, 'Scan QR'),
+          _buildStatItem(Icons.qr_code_scanner, 0, 'Absen'),
         ],
       ),
     );
@@ -403,7 +390,7 @@ class _UserDashboardState extends State<UserDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Rapat Akan Datang',
+          const Text('Riwayat Absensi Rapat',
               style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -411,19 +398,20 @@ class _UserDashboardState extends State<UserDashboard> {
           const SizedBox(height: 16),
           if (widget.isGuestMode)
             _buildGuestEmptyState()
-          else if (_upcomingRapat.isEmpty)
+          else if (_historyRapat.isEmpty)
             _buildEmptyState()
           else
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: _upcomingRapat.length,
+              itemCount: _historyRapat.length,
               itemBuilder: (context, index) {
-                final rapat = _upcomingRapat[index];
+                final absensi = _historyRapat[index];
+                final rapat = absensi['rapat'];
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: GestureDetector(
-                    onTap: () => _showMeetingDetails(rapat),
+                    onTap: () => _showMeetingDetails(rapat, absensi),
                     child: _buildMeetingCard(rapat),
                   ),
                 );
@@ -514,7 +502,8 @@ class _UserDashboardState extends State<UserDashboard> {
 
   // ============== WIDGET-WIDGET HELPER ==============
 
-  void _showMeetingDetails(Rapat rapat) {
+  void _showMeetingDetails(
+      Map<String, dynamic> rapat, Map<String, dynamic> absensi) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -527,17 +516,21 @@ class _UserDashboardState extends State<UserDashboard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildDetailItem('Nama Rapat', rapat.judul),
+                _buildDetailItem('Nama Rapat', rapat['judul'] ?? 'N/A'),
                 const SizedBox(height: 12),
-                _buildDetailItem('ID Rapat', rapat.idRapat.toString()),
+                _buildDetailItem(
+                    'ID Rapat', rapat['id_rapat']?.toString() ?? 'N/A'),
                 const SizedBox(height: 12),
-                _buildDetailItem('Ruangan', rapat.namaRuangan),
+                _buildDetailItem('Tanggal Rapat', rapat['tanggal'] ?? 'N/A'),
                 const SizedBox(height: 12),
-                _buildDetailItem('Tanggal', rapat.tanggalFormatted),
+                _buildDetailItem(
+                    'Waktu Absen', absensi['waktu_absen'] ?? 'N/A'),
                 const SizedBox(height: 12),
-                _buildDetailItem('Jam Mulai', rapat.waktuMulaiFormatted),
-                const SizedBox(height: 12),
-                _buildDetailItem('Pengaju Rapat', rapat.namaPengaju),
+                _buildDetailItem(
+                    'Status Kehadiran',
+                    absensi['id_status_kehadiran'] == 2
+                        ? 'Hadir'
+                        : 'Status Lain'),
               ],
             ),
           ),
@@ -582,7 +575,7 @@ class _UserDashboardState extends State<UserDashboard> {
     );
   }
 
-  Widget _buildMeetingCard(Rapat rapat) {
+  Widget _buildMeetingCard(Map<String, dynamic> rapat) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -603,24 +596,23 @@ class _UserDashboardState extends State<UserDashboard> {
             decoration: BoxDecoration(
                 color: const Color(0xFFE3F2FD),
                 borderRadius: BorderRadius.circular(10)),
-            child:
-                const Icon(Icons.upcoming, color: Color(0xFF1E3A8A), size: 30),
+            child: const Icon(Icons.history_edu,
+                color: Color(0xFF1E3A8A), size: 30),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(rapat.judul,
+                Text(rapat['judul'] ?? 'Tanpa Judul',
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, fontSize: 16),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 8),
-                _buildCardInfoRow(Icons.meeting_room, rapat.namaRuangan),
-                _buildCardInfoRow(Icons.calendar_today,
-                    '${rapat.tanggalFormatted} - ${rapat.waktuMulaiFormatted}'),
-                _buildCardInfoRow(Icons.qr_code, 'ID: ${rapat.idRapat}'),
+                _buildCardInfoRow(
+                    Icons.calendar_today, rapat['tanggal'] ?? 'Tanpa Tanggal'),
+                _buildCardInfoRow(Icons.qr_code, 'ID: ${rapat['id_rapat']}'),
               ],
             ),
           ),
@@ -651,9 +643,9 @@ class _UserDashboardState extends State<UserDashboard> {
       child: Center(
         child: Column(
           children: [
-            Icon(Icons.event_available, size: 64, color: Colors.grey[400]),
+            Icon(Icons.history, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            const Text('Tidak ada rapat yang akan datang',
+            const Text('Belum ada riwayat absensi',
                 style: TextStyle(fontSize: 16, color: Colors.grey)),
           ],
         ),
@@ -673,7 +665,7 @@ class _UserDashboardState extends State<UserDashboard> {
             const Text('Anda masuk sebagai tamu',
                 style: TextStyle(fontSize: 16, color: Colors.grey)),
             const SizedBox(height: 8),
-            const Text('Silakan login untuk melihat daftar rapat.',
+            const Text('Silakan login untuk melihat riwayat absensi.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 14, color: Colors.grey)),
           ],
@@ -685,7 +677,7 @@ class _UserDashboardState extends State<UserDashboard> {
 
 // ============== SCREEN SCANNER QR ==============
 class QRScannerScreen extends StatefulWidget {
-  final List<Rapat> upcomingMeetings;
+  final List<Map<String, dynamic>> upcomingMeetings;
 
   const QRScannerScreen({super.key, required this.upcomingMeetings});
 
@@ -726,10 +718,17 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   Future<void> _processAttendance(String qrToken) async {
     try {
       final result = await _rapatApiService.attendRapat(qrToken);
-      final message = result['message'] as String?;
-      final rapat = result['rapat'] != null
-          ? Rapat.fromJson(result['rapat'] as Map<String, dynamic>)
-          : null;
+      final message = result['message']?.toString();
+
+      // PERBAIKAN: Cek tipe data dari 'rapat' sebelum parsing
+      Rapat? rapat;
+      final rapatData = result['rapat'];
+
+      // Hanya coba parsing jika 'rapatData' adalah sebuah Map (JSON object)
+      if (rapatData != null && rapatData is Map<String, dynamic>) {
+        rapat = Rapat.fromJson(rapatData);
+      }
+      ;
 
       _showResultDialog(
         isSuccess: true,
@@ -978,8 +977,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    meeting.judul,
-                                    style: const TextStyle(
+                                    meeting['judul'] ?? 'Tanpa Judul',
+                                    style: TextStyle(
                                       fontWeight: FontWeight.w500,
                                       fontSize: 14,
                                     ),
@@ -991,7 +990,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          'ID: ${meeting.idRapat} • ${meeting.namaRuangan}',
+                                          'ID: ${meeting['id_rapat']} • ${meeting['nama_ruangan'] ?? ''}',
                                           style: const TextStyle(
                                             fontSize: 12,
                                             color: Colors.grey,

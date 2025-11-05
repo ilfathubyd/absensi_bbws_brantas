@@ -369,7 +369,6 @@ class RapatApiService {
       await file.writeAsBytes(response.bodyBytes);
 
       // (Opsional) Langsung buka file setelah diunduh
-     
 
       return filePath; // Mengembalikan path file yang berhasil diunduh
     } else {
@@ -583,7 +582,6 @@ class RapatApiService {
     throw Exception('Gagal memuat data user (status: ${response.statusCode})');
   }
 
-  /// Mengirimkan permintaan absensi untuk rapat tertentu.
   /// Menggunakan QR token yang didapat dari pemindaian.
   Future<Map<String, dynamic>> attendRapat(String qrToken) async {
     final token = await _authService.getToken();
@@ -612,12 +610,24 @@ class RapatApiService {
     final responseBody = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
-      return responseBody as Map<String, dynamic>;
-    } else {
-      // Coba ekstrak pesan error dari server
-      final errorMessage = responseBody['message']?.toString() ??
-          'Gagal melakukan absensi (status ${response.statusCode})';
-      throw Exception(errorMessage);
+      // PERBAIKAN: Tangani jika respons adalah Map atau String
+      if (responseBody is Map<String, dynamic>) {
+        // Jika sudah benar Map, langsung kembalikan.
+        return responseBody;
+      } else if (responseBody is String) {
+        // Jika hanya String, bungkus dalam Map agar konsisten.
+        return {'message': responseBody};
+      } else {
+        // Fallback jika format tidak terduga.
+        return {'message': 'Absensi berhasil diproses.'};
+      }
     }
+
+    // Coba ekstrak pesan error dari server jika status bukan 200
+    final errorMessage = (responseBody is Map<String, dynamic>)
+        ? responseBody['message']?.toString()
+        : responseBody.toString();
+    throw Exception(errorMessage ??
+        'Gagal melakukan absensi (status ${response.statusCode})');
   }
 }
