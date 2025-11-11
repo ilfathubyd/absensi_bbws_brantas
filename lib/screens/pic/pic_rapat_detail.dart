@@ -1,12 +1,14 @@
 // lib/screens/pic/pic_rapat_detail.dart
 
 import 'package:absen_app/Models/models/rapat.dart';
+import 'package:absen_app/screens/admin/meeting_attendance.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class PICRapatDetail extends StatelessWidget {
   final Rapat rapat;
 
+  // ignore: use_super_parameters
   const PICRapatDetail({super.key, required this.rapat});
 
   // Helper untuk warna status
@@ -33,6 +35,24 @@ class PICRapatDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool canShowAttendance =
+        rapat.statusRapat != 'Menunggu' && rapat.statusRapat != 'Ditolak';
+
+    // Helper style untuk tombol aksi
+    ButtonStyle actionButtonStyle(Color color) {
+      return ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        textStyle: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -127,6 +147,26 @@ class PICRapatDetail extends StatelessWidget {
                 ),
               ),
             ),
+            if (canShowAttendance) ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MeetingAttendance(rapat: rapat),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.people_alt_outlined),
+                  label: const Text('Lihat Daftar Absensi'),
+                  style: actionButtonStyle(Colors.teal),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
           ],
         ),
       ),

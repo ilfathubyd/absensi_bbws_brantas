@@ -1,6 +1,7 @@
 // lib/screens/pic/pic_dashboard.dart
 
 import 'package:absen_app/Models/models/rapat.dart';
+import 'package:absen_app/screens/admin/meeting_attendance.dart';
 import 'package:absen_app/screens/login_screen.dart';
 import 'package:flutter/material.dart';
 import '../../Models/models/user.dart';
@@ -984,10 +985,28 @@ class _PICDashboardState extends State<PICDashboard> {
                       ),
                     ),
 
+                  // Tombol Absensi
+                  if (rapat.statusRapat != 'Menunggu' &&
+                      rapat.statusRapat != 'Ditolak') ...[
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => MeetingAttendance(rapat: rapat)),
+                        );
+                      },
+                      icon: const Icon(Icons.people_alt, size: 16),
+                      label: const Text('Absensi'),
+                      style: _actionButtonStyle(Colors.teal),
+                    ),
+                  ],
                   // Tombol QR untuk rapat yang belum selesai
                   if (rapat.statusRapat != 'Selesai' &&
                       rapat.statusRapat != 'Ditolak' &&
-                      rapat.statusRapat != 'Menunggu')
+                      rapat.statusRapat != 'Menunggu') ...[
+                    const SizedBox(width: 8),
                     ElevatedButton.icon(
                       onPressed: () {
                         Navigator.push(
@@ -998,18 +1017,27 @@ class _PICDashboardState extends State<PICDashboard> {
                       },
                       icon: const Icon(Icons.qr_code, size: 16),
                       label: const Text('QR Code'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1976D2), // Warna biru
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
-                      ),
+                      style: _actionButtonStyle(const Color(0xFF1976D2)),
                     ),
+                  ]
                 ],
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Helper style untuk tombol aksi
+  ButtonStyle _actionButtonStyle(Color color) {
+    return ElevatedButton.styleFrom(
+      backgroundColor: color,
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      textStyle: const TextStyle(
+        fontSize: 12,
       ),
     );
   }

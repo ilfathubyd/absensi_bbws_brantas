@@ -10,6 +10,7 @@ import '../../services/auth_service.dart';
 import 'package:absen_app/screens/admin/create_meeting.dart';
 import 'package:absen_app/screens/admin/edit_meeting.dart';
 import 'package:absen_app/screens/admin/meeting_qr.dart';
+import 'package:absen_app/screens/admin/meeting_attendance.dart';
 import 'package:absen_app/Models/models/user.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -769,6 +770,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                                       initialRapat: m)));
                                         }),
                                       ],
+                                      if (m.statusRapat != 'Menunggu' &&
+                                          m.statusRapat != 'Ditolak') ...[
+                                        const SizedBox(width: 8),
+                                        _buildActionButton('Absensi',
+                                            Icons.people_alt, Colors.teal, () {
+                                          Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      MeetingAttendance(
+                                                          rapat: m)));
+                                        }),
+                                      ]
                                     ]),
                                   ),
                                 ]),

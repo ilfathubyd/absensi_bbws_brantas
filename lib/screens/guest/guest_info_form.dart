@@ -163,7 +163,7 @@ class _GuestInfoFormState extends State<GuestInfoForm> {
                   ),
                   filled: true,
                   fillColor: Colors.grey[50],
-                  hintText: 'Contoh: Manager, Staff, dll.',
+                  hintText: 'Manager, Staff, dll.',
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -177,14 +177,14 @@ class _GuestInfoFormState extends State<GuestInfoForm> {
               TextFormField(
                 controller: _companyController,
                 decoration: InputDecoration(
-                  labelText: 'Asal Perusahaan/Institusi',
+                  labelText: 'Asal Perusahaan/Institusi *',
                   prefixIcon: const Icon(Icons.business),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   filled: true,
                   fillColor: Colors.grey[50],
-                  hintText: 'Contoh: PT. Contoh Indonesia',
+                  hintText: 'PT. Hello World',
                 ),
               ),
               const SizedBox(height: 24),

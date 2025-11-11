@@ -191,14 +191,6 @@ class _UserDashboardState extends State<UserDashboard> {
                 color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1E3A8A),
         elevation: 0,
-        actions: [
-          if (!widget.isGuestMode && _currentPageIndex == 0)
-            IconButton(
-              icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
-              onPressed: _openQRScanner,
-              tooltip: 'Scan QR Code',
-            ),
-        ],
       ),
       body: pages[_currentPageIndex], // Body akan berganti sesuai index
       bottomNavigationBar: NavigationBar(
@@ -330,21 +322,50 @@ class _UserDashboardState extends State<UserDashboard> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              'Halo, ${_currentUser?.name ?? 'User'}',
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _currentUser?.email ?? 'user@example.com',
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
-            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Halo, ${_currentUser?.name ?? 'User'}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _currentUser?.email ?? 'user@example.com',
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!widget.isGuestMode) ...[
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    onPressed: _openQRScanner,
+                    icon: const Icon(Icons.qr_code_scanner,
+                        color: Color(0xFF1E3A8A)),
+                    label: const Text('Scan',
+                        style: TextStyle(
+                            color: Color(0xFF1E3A8A),
+                            fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFD600),
+                    ),
+                  ),
+                ]
+              ],
+            )
           ],
         ),
       ),

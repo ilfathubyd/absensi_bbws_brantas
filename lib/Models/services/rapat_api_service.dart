@@ -654,4 +654,36 @@ class RapatApiService {
     throw Exception(errorMessage ??
         'Gagal melakukan absensi (status ${response.statusCode})');
   }
+
+  /// Mengambil daftar absensi untuk rapat tertentu.
+  Future<List<Map<String, dynamic>>> fetchAbsensiRapat(String idRapat) async {
+    final token = await _authService.getToken();
+    if (token == null) {
+      throw Exception('Tidak terautentikasi');
+    }
+
+    final uri = Uri.parse('$_baseUrl/rapat/$idRapat/absensi');
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is List) {
+        return data.cast<Map<String, dynamic>>();
+      } else if (data is Map && data['data'] is List) {
+        return (data['data'] as List).cast<Map<String, dynamic>>();
+      }
+      throw Exception('Format data absensi tidak dikenali');
+    } else if (response.statusCode == 404) {
+      throw Exception('Rapat tidak ditemukan.');
+    } else {
+      throw Exception('Gagal memuat data absensi (Status: ${response.statusCode})');
+    }
+  }
 }
