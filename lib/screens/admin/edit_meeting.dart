@@ -52,7 +52,8 @@ class _EditMeetingState extends State<EditMeeting> {
   late DateTime _selectedDate;
   late TimeOfDay _selectedStartTime;
   TimeOfDay? _selectedEndTime;
-  bool _isEndTimeIndefinite = false;
+  bool _isEndTimeIndefinite =
+      false; // Unused but kept to match state initialization if needed, or remove completely. Better remove logic.
 
   @override
   void initState() {
@@ -60,7 +61,7 @@ class _EditMeetingState extends State<EditMeeting> {
     _titleController = TextEditingController(text: widget.rapat.judul);
     _descriptionController =
         TextEditingController(text: widget.rapat.deskripsi);
-    _isEndTimeIndefinite = widget.rapat.waktuSelesai == null;
+    // _isEndTimeIndefinite = widget.rapat.waktuSelesai == null;
 
     _selectedDate = widget.rapat.waktuMulai;
     _selectedStartTime = TimeOfDay.fromDateTime(widget.rapat.waktuMulai);
@@ -493,26 +494,12 @@ class _EditMeetingState extends State<EditMeeting> {
                                 subtitle: Text(_formatTime(_selectedStartTime)),
                                 onTap: _pickStartTime,
                               ),
-                              if (!_isEndTimeIndefinite)
-                                ListTile(
-                                  leading: const Icon(Icons.access_time,
-                                      color: Colors.red),
-                                  title: const Text('Jam Selesai'),
-                                  subtitle: Text(_formatTime(_selectedEndTime)),
-                                  onTap: _pickEndTime,
-                                ),
-                              SwitchListTile(
-                                title: const Text('Selesai tidak menentu'),
-                                value: _isEndTimeIndefinite,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _isEndTimeIndefinite = value;
-                                    if (value) _selectedEndTime = null;
-                                  });
-                                },
-                                activeColor: const Color(0xFF1565C0),
-                                secondary: const Icon(Icons.help_outline,
-                                    color: Colors.grey),
+                              ListTile(
+                                leading: const Icon(Icons.access_time,
+                                    color: Colors.red),
+                                title: const Text('Jam Selesai'),
+                                subtitle: Text(_formatTime(_selectedEndTime)),
+                                onTap: _pickEndTime,
                               ),
                             ],
                           ),
@@ -628,9 +615,8 @@ class _EditMeetingState extends State<EditMeeting> {
         '${_selectedDate.year}-${_two(_selectedDate.month)}-${_two(_selectedDate.day)}';
     final start =
         '${_two(_selectedStartTime.hour)}:${_two(_selectedStartTime.minute)}';
-    final end = !_isEndTimeIndefinite && _selectedEndTime != null
-        ? '${_two(_selectedEndTime!.hour)}:${_two(_selectedEndTime!.minute)}'
-        : null;
+    final end =
+        '${_two(_selectedEndTime!.hour)}:${_two(_selectedEndTime!.minute)}';
 
     setState(() => _isSubmitting = true);
     try {

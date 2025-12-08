@@ -2,6 +2,8 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:absen_app/Models/models/user.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:absen_app/config/api_config.dart'; // <-- Import config
@@ -16,6 +18,43 @@ class AuthService {
     const storage = FlutterSecureStorage();
     const tokenKey = 'auth_token';
 
+    // Get device info
+    DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+    String? deviceId;
+    String? deviceName;
+
+    try {
+      if (Platform.isAndroid) {
+        AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+        deviceId = androidInfo.id;
+        deviceName = androidInfo.model;
+      } else if (Platform.isIOS) {
+        IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+        deviceId = iosInfo.identifierForVendor;
+        deviceName = iosInfo.name;
+      } else if (Platform.isLinux) {
+        LinuxDeviceInfo linuxInfo = await deviceInfo.linuxInfo;
+        deviceId = linuxInfo.machineId ?? 'linux-machine-id-${DateTime.now().millisecondsSinceEpoch}';
+        deviceName = linuxInfo.name;
+      } else if (Platform.isWindows) {
+        WindowsDeviceInfo windowsInfo = await deviceInfo.windowsInfo;
+        deviceId = windowsInfo.deviceId;
+        deviceName = windowsInfo.computerName;
+      } else if (Platform.isMacOS) {
+        MacOsDeviceInfo macOsInfo = await deviceInfo.macOsInfo;
+        deviceId = macOsInfo.systemGUID;
+        deviceName = macOsInfo.computerName;
+      }
+    } catch (e) {
+      print("Failed to get device info: $e");
+    }
+
+    // Fallback if device info failed
+    if (deviceId == null) {
+      deviceId = 'unknown-device-${DateTime.now().millisecondsSinceEpoch}';
+      deviceName = 'Unknown Device';
+    }
+
     try {
 // PERBAIKAN: Tambah timeout untuk menghindari hanging
       final response = await http
@@ -28,6 +67,8 @@ class AuthService {
             body: jsonEncode({
               'username': username,
               'password': password,
+              'device_id': deviceId,
+              'device_name': deviceName,
             }),
           )
           .timeout(const Duration(seconds: 30));

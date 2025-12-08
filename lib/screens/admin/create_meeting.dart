@@ -39,7 +39,7 @@ class _CreateRapatState extends State<CreateRapat> {
   bool _loadingInitialData = true;
   bool _loadingRooms = false; // Untuk memuat ruangan setelah cabang dipilih
   bool _submitting = false;
-  bool _isIndefinite = false;
+  // bool _isIndefinite = false; // DIHAPUS
   AppUser? _currentUser;
   final RapatApiService _rapatApiService = RapatApiService();
   final AuthService _authService = AuthService();
@@ -136,10 +136,8 @@ class _CreateRapatState extends State<CreateRapat> {
 
   // Fungsi baru untuk memuat ruangan berdasarkan cabang yang dipilih
   Future<void> _loadRooms() async {
-    if (_selectedCabangId == null ||
-        _selectedDate == null ||
-        _selectedStartTime == null) {
-      return; // Jangan muat ruangan jika data belum lengkap
+    if (_selectedCabangId == null) {
+      return; // Cukup cek cabang saja
     }
 
     setState(() {
@@ -148,12 +146,14 @@ class _CreateRapatState extends State<CreateRapat> {
       _selectedRoomId = null; // Reset pilihan ruangan
     });
 
-    final tanggal =
-        '${_selectedDate!.year}-${_two(_selectedDate!.month)}-${_two(_selectedDate!.day)}';
-    final start =
-        '${_two(_selectedStartTime!.hour)}:${_two(_selectedStartTime!.minute)}';
-    // PERBAIKAN: Kirim juga waktu selesai jika ada, agar pengecekan lebih akurat
-    final end = !_isIndefinite && _selectedEndTime != null
+    // Optional params
+    final tanggal = _selectedDate != null
+        ? '${_selectedDate!.year}-${_two(_selectedDate!.month)}-${_two(_selectedDate!.day)}'
+        : null;
+    final start = _selectedStartTime != null
+        ? '${_two(_selectedStartTime!.hour)}:${_two(_selectedStartTime!.minute)}'
+        : null;
+    final end = _selectedEndTime != null
         ? '${_two(_selectedEndTime!.hour)}:${_two(_selectedEndTime!.minute)}'
         : null;
 
@@ -166,6 +166,26 @@ class _CreateRapatState extends State<CreateRapat> {
       if (mounted) {
         setState(() {
           _rooms = rooms;
+          // AUTO-SELECT LOGIC:
+          // Jika list ruangan tidak kosong, coba cari ruangan pertama yang tersedia (status_ruangan_id == 1/null jika API belum handle).
+          // Asumsi backend kirim status_ruangan_id 1 = Tersedia.
+          // Jika tidak ada yang id=1, jangan select apa-apa.
+          if (_rooms.isNotEmpty) {
+            // Cek apakah ada ruangan yang tersedia
+            // (Sesuaikan key 'status_ruangan_id' dengan response API)
+            final availableRoom = _rooms.firstWhere(
+              (r) => r['status_ruangan_id'] == 1,
+              orElse: () => {}, // Return map kosong jika tidak ketemu
+            );
+
+            if (availableRoom.isNotEmpty) {
+              _selectedRoomId = availableRoom['id_room'] as int?;
+            } else {
+              _selectedRoomId = null;
+            }
+          } else {
+            _selectedRoomId = null;
+          }
         });
       }
     } catch (e) {
@@ -320,7 +340,7 @@ class _CreateRapatState extends State<CreateRapat> {
       _showErrorSnackbar('Pilih jam mulai rapat');
       return;
     }
-    if (!_isIndefinite && _selectedEndTime == null) {
+    if (_selectedEndTime == null) {
       _showErrorSnackbar('Pilih jam selesai rapat');
       return;
     }
@@ -341,9 +361,8 @@ class _CreateRapatState extends State<CreateRapat> {
         '${_selectedDate!.year}-${_two(_selectedDate!.month)}-${_two(_selectedDate!.day)}';
     final start =
         '${_two(_selectedStartTime!.hour)}:${_two(_selectedStartTime!.minute)}';
-    final end = !_isIndefinite && _selectedEndTime != null
-        ? '${_two(_selectedEndTime!.hour)}:${_two(_selectedEndTime!.minute)}'
-        : null;
+    final end =
+        '${_two(_selectedEndTime!.hour)}:${_two(_selectedEndTime!.minute)}';
 
     setState(() {
       _submitting = true;
@@ -478,58 +497,6 @@ class _CreateRapatState extends State<CreateRapat> {
                     color: Colors.grey[800])),
           ],
         ),
-      ),
-    );
-  }
-
-  // Method untuk indefinite switch
-  Widget _buildIndefiniteSwitch() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: _isIndefinite ? Colors.orange[50] : Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _isIndefinite ? Colors.orange : Colors.grey[300]!,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            _isIndefinite ? Icons.timelapse : Icons.timelapse,
-            color: _isIndefinite ? Colors.orange : Colors.grey,
-            size: 20,
-          ),
-          SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Selesai tidak menentu',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        color: _isIndefinite
-                            ? Colors.orange[800]
-                            : Colors.grey[800])),
-                if (_isIndefinite)
-                  Text('Rapat tidak memiliki waktu selesai tertentu',
-                      style:
-                          TextStyle(fontSize: 12, color: Colors.orange[600])),
-              ],
-            ),
-          ),
-          Switch(
-            value: _isIndefinite,
-            onChanged: (value) {
-              setState(() {
-                _isIndefinite = value;
-                if (value) _selectedEndTime = null;
-                _loadRooms(); // PERBAIKAN: Muat ulang ruangan saat status "tidak menentu" berubah
-              });
-            },
-            activeColor: Colors.orange,
-          ),
-        ],
       ),
     );
   }
@@ -713,23 +680,20 @@ class _CreateRapatState extends State<CreateRapat> {
                                           onTap: _pickStartTime,
                                         ),
                                       ),
-                                      if (!_isIndefinite) ...[
-                                        SizedBox(width: 8),
-                                        Expanded(
-                                          child: _buildCompactTimeItem(
-                                            icon: Icons.timelapse,
-                                            label: 'Selesai',
-                                            value:
-                                                _formatTime(_selectedEndTime),
-                                            onTap: _pickEndTime,
-                                          ),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: _buildCompactTimeItem(
+                                          icon: Icons.timelapse,
+                                          label: 'Selesai',
+                                          value: _formatTime(_selectedEndTime),
+                                          onTap: _pickEndTime,
                                         ),
-                                      ],
+                                      ),
                                     ],
                                   ),
 
                                   SizedBox(height: 12),
-                                  _buildIndefiniteSwitch(),
+                                  // Selesai Tidak Menentu Removed
                                 ],
                               ),
                             ),
@@ -771,6 +735,25 @@ class _CreateRapatState extends State<CreateRapat> {
                                 final textColor =
                                     isAvailable ? Colors.black87 : Colors.grey;
 
+                                // Ambil info booking jika tidak tersedia
+                                String displayName = name;
+                                if (!isAvailable && e['booking_info'] != null) {
+                                  final bookingInfo =
+                                      e['booking_info'] as Map<String, dynamic>;
+                                  final startTime = bookingInfo['waktu_start']
+                                          ?.toString()
+                                          .substring(0, 5) ??
+                                      '';
+                                  final endTime =
+                                      bookingInfo['waktu_end'] != null
+                                          ? bookingInfo['waktu_end']
+                                              .toString()
+                                              .substring(0, 5)
+                                          : 'Tidak Menentu';
+                                  displayName =
+                                      '$name\n(Terpakai: $startTime - $endTime)';
+                                }
+
                                 return DropdownMenuItem<int>(
                                     value: id,
                                     enabled:
@@ -790,9 +773,13 @@ class _CreateRapatState extends State<CreateRapat> {
                                         const SizedBox(width: 10),
                                         Expanded(
                                             child: Text(
-                                          name,
+                                          displayName,
                                           overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(color: textColor),
+                                          maxLines: 2,
+                                          style: TextStyle(
+                                            color: textColor,
+                                            fontSize: 13,
+                                          ),
                                         )),
                                       ],
                                     ));
