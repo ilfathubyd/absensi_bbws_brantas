@@ -3,7 +3,7 @@
 import 'package:absen_app/Models/models/user.dart';
 import 'package:absen_app/screens/login_screen.dart'; // Ganti dengan path halaman login Anda
 import 'package:absen_app/screens/pic/pic_dashboard.dart'; // Ganti dengan path dashboard Anda
-import 'package:absen_app/screens/user/user_dashboard.dart';
+import 'package:absen_app/screens/user/user_shortcut_menu.dart';
 import 'package:absen_app/services/auth_service.dart';
 import 'package:flutter/material.dart'; // Hapus jika tidak perlu
 
@@ -64,7 +64,7 @@ class _SplashScreenState extends State<SplashScreen>
           if (user.isPIC()) {
             destination = const PICDashboard();
           } else if (user.isUser()) {
-            destination = const UserDashboard();
+            destination = const UserShortcutMenu();
           }
           // TODO: Tambahkan kondisi untuk admin jika ada AdminDashboard
 

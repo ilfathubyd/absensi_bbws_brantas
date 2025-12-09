@@ -8,55 +8,75 @@ import 'package:absen_app/Models/models/user.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:absen_app/config/api_config.dart'; // <-- Import config
 
+import 'package:uuid/uuid.dart';
+
 class AuthService {
   static const String _baseUrl = ApiConfig.baseUrl;
 
-  Future<AppUser> login(String username, String password) async {
-    final url = Uri.parse('$_baseUrl/login');
-
-    // Tambahkan instance secure storage
+  // Helper untuk mendapatkan payload device lengkap
+  Future<Map<String, String>> _getDevicePayload() async {
     const storage = FlutterSecureStorage();
-    const tokenKey = 'auth_token';
+    final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
 
-    // Get device info
-    DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-    String? deviceId;
-    String? deviceName;
+    String hardwareId = 'unknown';
+    String manufacturer = 'unknown';
+    String model = 'unknown';
+    String osVersion = 'unknown';
+    String buildId = '';
+    String deviceName = 'Unknown Device';
 
     try {
       if (Platform.isAndroid) {
         AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-        deviceId = androidInfo.id;
+        hardwareId = androidInfo.id; // stable hardware id
+        manufacturer = androidInfo.manufacturer;
+        model = androidInfo.model;
+        osVersion =
+            'Android ${androidInfo.version.release} (SDK ${androidInfo.version.sdkInt})';
+        buildId = androidInfo.display; // or androidInfo.id
         deviceName = androidInfo.model;
       } else if (Platform.isIOS) {
         IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
-        deviceId = iosInfo.identifierForVendor;
+        // identifierForVendor can change on reinstall, but we use it as hardware_id base
+        hardwareId = iosInfo.identifierForVendor ?? 'unknown_ios_id';
+        manufacturer = 'Apple';
+        model = iosInfo.utsname.machine;
+        osVersion = '${iosInfo.systemName} ${iosInfo.systemVersion}';
+        buildId = iosInfo.utsname.version;
         deviceName = iosInfo.name;
-      } else if (Platform.isLinux) {
-        LinuxDeviceInfo linuxInfo = await deviceInfo.linuxInfo;
-        deviceId = linuxInfo.machineId ?? 'linux-machine-id-${DateTime.now().millisecondsSinceEpoch}';
-        deviceName = linuxInfo.name;
-      } else if (Platform.isWindows) {
-        WindowsDeviceInfo windowsInfo = await deviceInfo.windowsInfo;
-        deviceId = windowsInfo.deviceId;
-        deviceName = windowsInfo.computerName;
-      } else if (Platform.isMacOS) {
-        MacOsDeviceInfo macOsInfo = await deviceInfo.macOsInfo;
-        deviceId = macOsInfo.systemGUID;
-        deviceName = macOsInfo.computerName;
       }
     } catch (e) {
-      print("Failed to get device info: $e");
+      print('Error getting device info: $e');
     }
 
-    // Fallback if device info failed
-    if (deviceId == null) {
-      deviceId = 'unknown-device-${DateTime.now().millisecondsSinceEpoch}';
-      deviceName = 'Unknown Device';
+    // --- APP INSTANCE ID (UUID persisten hanya selama app tidak di-uninstall) ---
+    // Backend akan mendeteksi jika ini berubah untuk update DB.
+    String? appInstanceId = await storage.read(key: 'app_instance_id');
+    if (appInstanceId == null) {
+      appInstanceId = const Uuid().v4();
+      await storage.write(key: 'app_instance_id', value: appInstanceId);
     }
+
+    return {
+      'hardware_id': hardwareId,
+      'app_instance_id': appInstanceId,
+      'manufacturer': manufacturer,
+      'model': model,
+      'os_version': osVersion,
+      'build_id': buildId,
+      'device_name': deviceName, // For display in users table if needed legacy
+    };
+  }
+
+  Future<AppUser> login(String username, String password) async {
+    final url = Uri.parse('$_baseUrl/login');
+    const storage = FlutterSecureStorage();
+    const tokenKey = 'auth_token';
+
+    // 1. Get Comprehensive Device Payload
+    final devicePayload = await _getDevicePayload();
 
     try {
-// PERBAIKAN: Tambah timeout untuk menghindari hanging
       final response = await http
           .post(
             url,
@@ -67,32 +87,32 @@ class AuthService {
             body: jsonEncode({
               'username': username,
               'password': password,
-              'device_id': deviceId,
-              'device_name': deviceName,
+              ...devicePayload, // Spread payload: hardware_id, app_instance_id, etc.
             }),
           )
           .timeout(const Duration(seconds: 30));
 
       print('Response Status: ${response.statusCode}');
-      print('Response Body: ${response.body}');
+      // print('Response Body: ${response.body}'); // Debug
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-// PERBAIKAN: Validasi struktur response
         if (!data.containsKey('token') || !data.containsKey('user')) {
           throw Exception('Invalid response format from server');
         }
 
-// Simpan token
         await storage.write(key: tokenKey, value: data['token']);
-
-// PERBAIKAN: Debug print untuk melihat data user
-        print('User data from API: ${data['user']}');
 
         return AppUser.fromJson(data['user']);
       } else if (response.statusCode == 401) {
+        // Bisa invalid credentials atau token mismatch (tapi login endpoint jarang token mismatch kecuali middleware aneh)
+        // 401 biasanya invalid username/password
         throw Exception('Username atau password salah.');
+      } else if (response.statusCode == 403) {
+        // Forbidden: Device Mismatch
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['message'] ?? 'Akses ditolak.');
       } else if (response.statusCode == 422) {
         final errorData = jsonDecode(response.body);
         String errorMessage = 'Validation error';
@@ -112,13 +132,11 @@ class AuthService {
           'Tidak dapat terhubung ke server. Pastikan server Laravel berjalan.');
     } on FormatException catch (e) {
       print('FormatException: $e');
-      throw Exception('Server mengembalikan response yang tidak valid.');
+      throw Exception(
+          'Server mengembalikan response yang tidak valid. Cek koneksi internet/server.');
     } catch (e) {
       print('General Exception: $e');
-      if (e.toString().contains('Exception:')) {
-        rethrow; // Re-throw jika sudah custom exception
-      }
-      throw Exception('Terjadi kesalahan: ${e.toString()}');
+      rethrow;
     }
   }
 

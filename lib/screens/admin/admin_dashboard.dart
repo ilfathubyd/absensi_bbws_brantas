@@ -9,9 +9,10 @@ import 'package:shimmer/shimmer.dart';
 import '../../services/auth_service.dart';
 import 'package:absen_app/screens/admin/create_meeting.dart';
 import 'package:absen_app/screens/admin/edit_meeting.dart';
-import 'package:absen_app/screens/admin/meeting_qr.dart';
 import 'package:absen_app/screens/admin/meeting_attendance.dart';
+import 'package:absen_app/screens/admin/admin_meeting_detail_dialog.dart';
 import 'package:absen_app/Models/models/user.dart';
+import 'package:absen_app/utils/snackbar_helper.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -95,32 +96,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Future<void> _exportMeetingData(Rapat rapat) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Mengekspor data rapat '${rapat.judul}'..."),
-        duration:
-            const Duration(seconds: 3), // Beri waktu untuk proses download
-        backgroundColor: Colors.blueAccent,
-      ),
+    SnackBarHelper.info(
+      context,
+      "Mengekspor data rapat '${rapat.judul}'...",
     );
 
     try {
       final filePath = await _rapatApiService.downloadAbsensiRapat(
           rapat.idRapat, rapat.judul);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                "Data rapat '${rapat.judul}' berhasil diekspor ke: $filePath"),
-            backgroundColor: Colors.green),
+      SnackBarHelper.success(
+        context,
+        "Data rapat '${rapat.judul}' berhasil diekspor ke: $filePath",
       );
       // Opsional: Anda bisa menambahkan kode di sini untuk membuka file yang diunduh.
       // Misalnya, menggunakan package `open_filex`: `OpenFilex.open(filePath);`
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                "Gagal mengekspor data rapat '${rapat.judul}': ${e.toString()}"),
-            backgroundColor: Colors.red),
+      SnackBarHelper.error(
+        context,
+        "Gagal mengekspor data rapat '${rapat.judul}': ${e.toString()}",
       );
     }
   }
@@ -750,6 +743,43 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                           if (result == true) _refreshData();
                                         }),
                                         const SizedBox(width: 8),
+                                        // Tombol Hapus - ditambahkan untuk CRUD lengkap
+                                        _buildActionButton(
+                                            'Hapus', Icons.delete, Colors.red,
+                                            () async {
+                                          final confirm =
+                                              await showDialog<bool>(
+                                            context: context,
+                                            builder: (context) => AlertDialog(
+                                              title: const Text(
+                                                  'Konfirmasi Hapus'),
+                                              content: Text(
+                                                  'Anda yakin ingin menghapus rapat "${m.judul}"?'),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(
+                                                          context, false),
+                                                  child: const Text('Batal'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(
+                                                          context, true),
+                                                  style: TextButton.styleFrom(
+                                                      foregroundColor:
+                                                          Colors.red),
+                                                  child: const Text('Hapus'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          if (confirm == true) {
+                                            await _deleteRapat(
+                                                m.idRapat, m.judul);
+                                          }
+                                        }),
+                                        const SizedBox(width: 8),
                                       ],
                                       if (m.statusRapat == 'Selesai') ...[
                                         _buildActionButton(
@@ -761,20 +791,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                       ],
                                       if (m.statusRapat != 'Selesai') ...[
                                         // Tambahkan kondisi ini
-                                        _buildActionButton('QR', Icons.qr_code,
-                                            const Color(0xFF1565C0), () {
-                                          Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                  builder: (_) => MeetingQR(
-                                                      initialRapat: m)));
-                                        }),
-                                      ],
-                                      if (m.statusRapat != 'Menunggu' &&
-                                          m.statusRapat != 'Ditolak') ...[
-                                        const SizedBox(width: 8),
-                                        _buildActionButton('Absensi',
-                                            Icons.people_alt, Colors.teal, () {
+                                        _buildActionButton(
+                                            'Absensi',
+                                            Icons.people,
+                                            const Color(0xFF4CAF50), () {
                                           Navigator.push(
                                               context,
                                               MaterialPageRoute(
@@ -1054,88 +1074,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(children: [
-            Icon(Icons.info_outline, color: Color(0xFF1565C0)),
-            SizedBox(width: 10),
-            Text('Detail Rapat', style: TextStyle(fontWeight: FontWeight.bold)),
-          ]),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(rapat.judul,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(color: Colors.black)),
-                const SizedBox(height: 8),
-                const Divider(),
-                _buildDetailRow(
-                    Icons.tag, "ID Rapat", rapat.idRapat.toString()),
-                _buildDetailRow(
-                    Icons.description_outlined, "Deskripsi", rapat.deskripsi),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Row(
-                    children: [
-                      Icon(Icons.flag_outlined,
-                          color: Colors.grey[700], size: 20),
-                      const SizedBox(width: 16),
-                      Chip(
-                        avatar: Icon(_getStatusIcon(rapat.statusRapat),
-                            color: _getStatusColor(rapat.statusRapat),
-                            size: 18),
-                        label: Text(rapat.statusRapat,
-                            style: TextStyle(
-                                color: _getStatusColor(rapat.statusRapat),
-                                fontWeight: FontWeight.bold)),
-                        backgroundColor:
-                            _getStatusColor(rapat.statusRapat).withOpacity(0.1),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                      ),
-                    ],
-                  ),
-                ),
-                _buildDetailRow(
-                    Icons.person_outline, "Pengaju", rapat.namaPengaju),
-                _buildDetailRow(
-                    Icons.business_outlined, "Cabang", rapat.namaCabang),
-                _buildDetailRow(
-                    Icons.meeting_room_outlined, "Ruangan", rapat.namaRuangan),
-                _buildDetailRow(
-                    Icons.calendar_today_outlined,
-                    "Waktu Mulai",
-                    DateFormat('EEEE, dd MMMM yyyy HH:mm', 'id_ID')
-                        .format(rapat.waktuMulai)),
-                _buildDetailRow(Icons.timelapse_outlined, "Waktu Selesai",
-                    rapat.waktuSelesaiFormatted),
-              ],
-            ),
-          ),
-          actions: [
-            // <-- TOMBOL HAPUS DITAMBAHKAN DI SINI
-            TextButton(
-              child: const Text("Hapus",
-                  style: TextStyle(
-                      color: Colors.red, fontWeight: FontWeight.bold)),
-              onPressed: () {
-                Navigator.of(context).pop(); // Tutup dialog detail
-                _showDeleteConfirmationFromDetail(
-                    rapat); // Tampilkan dialog konfirmasi hapus
-              },
-            ),
-            TextButton(
-              child: const Text("Tutup",
-                  style: TextStyle(
-                      color: Color(0xFF1565C0), fontWeight: FontWeight.bold)),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
+        return AdminMeetingDetailDialog(
+          rapat: rapat,
+          onDelete: () => _showDeleteConfirmationFromDetail(rapat),
         );
       },
     );
@@ -1163,14 +1104,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
     try {
       await _rapatApiService.approveRapat(request.idRapat);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Pengajuan "${request.judul}" telah disetujui'),
-          backgroundColor: Colors.green));
+      SnackBarHelper.success(
+        context,
+        'Pengajuan "${request.judul}" telah disetujui',
+      );
       _refreshData();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Gagal menyetujui: ${e.toString()}'),
-          backgroundColor: Colors.red));
+      SnackBarHelper.error(
+        context,
+        'Gagal menyetujui: ${e.toString()}',
+      );
     }
   }
 
@@ -1205,9 +1148,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ElevatedButton(
             onPressed: () {
               if (reasonController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('Harap masukkan alasan penolakan'),
-                    backgroundColor: Colors.red));
+                SnackBarHelper.warning(
+                  context,
+                  'Alasan penolakan tidak boleh kosong',
+                );
                 return;
               }
               Navigator.pop(context, true);
@@ -1223,14 +1167,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
     try {
       final rejectionReason = reasonController.text.trim();
       await _rapatApiService.rejectRapat(request.idRapat, rejectionReason);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Pengajuan "${request.judul}" telah ditolak'),
-          backgroundColor: Colors.red));
+      SnackBarHelper.success(
+        context,
+        'Pengajuan "${request.judul}" telah ditolak',
+      );
       _refreshData();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Gagal menolak: ${e.toString()}'),
-          backgroundColor: Colors.red));
+      SnackBarHelper.error(
+        context,
+        'Gagal menolak: ${e.toString()}',
+      );
     }
   }
 
@@ -1276,17 +1222,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Future<void> _deleteRapat(String idRapat, String judul) async {
     try {
       await _rapatApiService.deleteRapat(idRapat);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Rapat "$judul" berhasil dihapus'),
-            backgroundColor: Colors.orange),
+      SnackBarHelper.success(
+        context,
+        'Rapat "$judul" berhasil dihapus',
       );
       _refreshData(); // Refresh data setelah berhasil menghapus
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Gagal menghapus rapat: $e'),
-            backgroundColor: Colors.red),
+      SnackBarHelper.error(
+        context,
+        'Gagal menghapus rapat: ${e.toString()}',
       );
     }
   }

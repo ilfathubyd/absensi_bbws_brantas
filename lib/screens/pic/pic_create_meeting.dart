@@ -1,4 +1,4 @@
-//Create Meeting ADMIN DASHBOARD
+//PIC Create Meeting
 
 import 'dart:io';
 import 'package:absen_app/Models/models/division.dart';
@@ -11,14 +11,14 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:absen_app/utils/snackbar_helper.dart';
 
-class CreateRapat extends StatefulWidget {
-  const CreateRapat({super.key});
+class PICCreateRapat extends StatefulWidget {
+  const PICCreateRapat({super.key});
 
   @override
-  State<CreateRapat> createState() => _CreateRapatState();
+  State<PICCreateRapat> createState() => _PICCreateRapatState();
 }
 
-class _CreateRapatState extends State<CreateRapat> {
+class _PICCreateRapatState extends State<PICCreateRapat> {
   final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
   final _descriptionCtrl = TextEditingController();
@@ -35,9 +35,6 @@ class _CreateRapatState extends State<CreateRapat> {
       []; // Akan berisi ruangan untuk cabang yang dipilih
   List<Division> _allDivisions = [];
   List<Division> _selectedDivisions = [];
-  List<Map<String, dynamic>> _picUsers = []; // Untuk dropdown penanggung jawab
-  String?
-      _selectedPicId; // Untuk menyimpan ID PIC yang dipilih (sekarang String)
 
   // Variabel State untuk Kontrol UI
   bool _loadingInitialData = true;
@@ -78,7 +75,6 @@ class _CreateRapatState extends State<CreateRapat> {
         _loadCurrentUser(),
         _loadCabang(),
         _loadDivisions(),
-        _loadPicUsers(), // Memuat data PIC
       ]);
       final divisionsData = results[2] as List<Map<String, dynamic>>;
       if (mounted) {
@@ -128,18 +124,6 @@ class _CreateRapatState extends State<CreateRapat> {
       return await _rapatApiService.fetchUsers();
     } catch (e) {
       print("Gagal memuat data divisi: $e");
-      rethrow;
-    }
-  }
-
-  Future<void> _loadPicUsers() async {
-    try {
-      final users = await _rapatApiService.fetchUsersPIC();
-      if (mounted) {
-        setState(() => _picUsers = users);
-      }
-    } catch (e) {
-      print("Gagal memuat data PIC: $e");
       rethrow;
     }
   }
@@ -344,8 +328,10 @@ class _CreateRapatState extends State<CreateRapat> {
   Future<void> _pickFiles(String category) async {
     // Check if running on web
     if (kIsWeb) {
-      SnackBarHelper.warning(context,
-          'Upload file tidak didukung di versi web. Silakan gunakan aplikasi mobile.');
+      SnackBarHelper.warning(
+        context,
+        'Upload file tidak didukung di versi web. Silakan gunakan aplikasi mobile.',
+      );
       return;
     }
 
@@ -395,7 +381,9 @@ class _CreateRapatState extends State<CreateRapat> {
         });
 
         SnackBarHelper.success(
-            context, '✓ ${files.length} file ditambahkan ke $category');
+          context,
+          '✓ ${files.length} file ditambahkan ke $category',
+        );
       }
     } catch (e) {
       SnackBarHelper.error(context, 'Gagal memilih file: $e');
@@ -604,8 +592,8 @@ class _CreateRapatState extends State<CreateRapat> {
       _showErrorSnackbar('Pilih ruangan rapat');
       return;
     }
-    if (_selectedPicId == null) {
-      _showErrorSnackbar('Pilih Penanggung Jawab (PIC)');
+    if (_currentUser == null) {
+      _showErrorSnackbar('User tidak terautentikasi');
       return;
     }
 
@@ -633,7 +621,7 @@ class _CreateRapatState extends State<CreateRapat> {
         desc: _descriptionCtrl.text.trim().isEmpty
             ? null
             : _descriptionCtrl.text.trim(),
-        idUserPengaju: _selectedPicId!, // Kirim ID PIC yang sudah divalidasi
+        idUserPengaju: _currentUser!.id_user, // Auto-set current PIC user
         divisions: divisionIds, // Mengirim ID divisi
         // TAMBAHAN: Kirim files
         filesMateri: _filesMateri.isEmpty ? null : _filesMateri,
@@ -642,10 +630,7 @@ class _CreateRapatState extends State<CreateRapat> {
         filesLainnya: _filesLainnya.isEmpty ? null : _filesLainnya,
       );
 
-      SnackBarHelper.success(
-        context,
-        'Rapat berhasil dibuat!',
-      );
+      SnackBarHelper.success(context, 'Rapat berhasil dibuat!');
 
       if (mounted) {
         Navigator.of(context)
@@ -1102,39 +1087,6 @@ class _CreateRapatState extends State<CreateRapat> {
                                       .toList(),
                                 ),
                               ),
-
-                            SizedBox(height: isSmallScreen ? 16 : 20),
-
-                            // Penanggung Jawab
-                            DropdownButtonFormField<String>(
-                              value: _selectedPicId,
-                              isExpanded: true,
-                              decoration: InputDecoration(
-                                labelText: _loadingInitialData
-                                    ? 'Memuat PIC...'
-                                    : 'Pilih Penanggung Jawab (PIC)',
-                                prefixIcon: const Icon(Icons.person,
-                                    color: Color(0xFF1565C0)),
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12)),
-                              ),
-                              items: _picUsers.map((user) {
-                                final id = user['id_user']?.toString();
-                                final name = (user['name'] ?? 'User Tanpa Nama')
-                                    .toString();
-                                return DropdownMenuItem<String>(
-                                    value: id,
-                                    child: Text(name,
-                                        overflow: TextOverflow.ellipsis));
-                              }).toList(),
-                              onChanged: _loadingInitialData
-                                  ? null
-                                  : (String? newValue) {
-                                      setState(() => _selectedPicId = newValue);
-                                    },
-                              validator: (v) =>
-                                  v == null ? 'Pilih penanggung jawab' : null,
-                            ),
                           ],
                         ),
                       ),

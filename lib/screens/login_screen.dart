@@ -1,19 +1,18 @@
 //login_screen.dart
 
 import 'package:absen_app/screens/admin/admin_dashboard.dart';
-import 'package:absen_app/screens/user/user_dashboard.dart';
+import 'package:absen_app/screens/user/user_shortcut_menu.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart'; // TAMBAHAN: Import untuk url_launcher
 import 'package:line_awesome_flutter/line_awesome_flutter.dart'; // TAMBAHAN: Import Line Awesome
 import 'package:absen_app/screens/pic/pic_dashboard.dart' show PICDashboard;
 import 'package:absen_app/Models/models/user.dart';
 import 'package:absen_app/services/auth_service.dart';
+import 'package:absen_app/utils/snackbar_helper.dart';
 
 // TAMBAHAN: Import untuk Guest Dashboard dan modal baru
-import 'package:absen_app/screens/guest/guest_dashboard.dart'
-    show GuestDashboard;
-import 'package:absen_app/screens/guest/guest_room_modal.dart'
-    show GuestRoomModal;
+// import 'package:absen_app/screens/guest/guest_dashboard.dart' show GuestDashboard;
+// import 'package:absen_app/screens/guest/guest_room_modal.dart' show GuestRoomModal;
 
 late AppUser currentUser;
 
@@ -30,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
 
   bool _isLoading = false;
-  bool _isGuestLoading = false;
+  // bool _isGuestLoading = false;
 
   @override
   void dispose() {
@@ -72,8 +71,8 @@ class _LoginScreenState extends State<LoginScreen> {
           screenName = 'PIC Dashboard';
           break;
         case 3: // User biasa
-          targetScreen = const UserDashboard();
-          screenName = 'User Dashboard';
+          targetScreen = const UserShortcutMenu();
+          screenName = 'User Menu';
           break;
         default:
           targetScreen = const Placeholder(
@@ -82,12 +81,9 @@ class _LoginScreenState extends State<LoginScreen> {
           screenName = 'User Dashboard (Default)';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Login berhasil! Mengalihkan ke $screenName...'),
-          backgroundColor: Colors.green[600],
-          duration: const Duration(seconds: 2),
-        ),
+      SnackBarHelper.success(
+        context,
+        'Login berhasil! Mengalihkan ke $screenName...',
       );
 
       if (!mounted) return;
@@ -101,13 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       String errorMessage = e.toString().replaceAll('Exception: ', '');
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red[600],
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      SnackBarHelper.error(context, errorMessage);
     } finally {
       if (mounted) {
         setState(() {
@@ -117,79 +107,28 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _loginAsGuest() {
-    if (_isGuestLoading) return;
-
-    setState(() {
-      _isGuestLoading = true;
-    });
-
-    try {
-      final guestUser = AppUser(
-        id_user: 'guest_id', // PERUBAHAN: Gunakan String, bukan int
-        username: 'guest',
-        name: 'Guest User',
-        id_role: 3,
-        role: 'Guest',
-        email: '',
-      );
-      currentUser = guestUser;
-
-      Future.microtask(() {
-        if (mounted) {
-          setState(() {
-            _isGuestLoading = false;
-          });
-          _showRoomCodeModal(context);
-        }
-      });
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isGuestLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saat login sebagai guest: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    }
-  }
-
-  void _showRoomCodeModal(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const GuestRoomModal();
-      },
-    );
-  }
-
   // TAMBAHAN: Method untuk membuka WhatsApp
   Future<void> _launchWhatsApp(String phoneNumber) async {
-    final url = 'https://wa.me/$phoneNumber';
+    const message = "Halo mas, kami ingin custom aplikasi SIMRAPEL";
+    final url =
+        'https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}';
     try {
-      if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(Uri.parse(url));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tidak dapat membuka WhatsApp'),
-            backgroundColor: Colors.red,
-          ),
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(
+          uri,
+          mode:
+              LaunchMode.externalApplication, // Penting: buka di app eksternal
         );
+      } else {
+        if (mounted) {
+          SnackBarHelper.error(context, 'Tidak dapat membuka WhatsApp');
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        SnackBarHelper.error(context, 'Error: $e');
+      }
     }
   }
 
@@ -197,23 +136,21 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _launchEmail(String email) async {
     final url = 'mailto:$email';
     try {
-      if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(Uri.parse(url));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tidak dapat membuka aplikasi email'),
-            backgroundColor: Colors.red,
-          ),
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
         );
+      } else {
+        if (mounted) {
+          SnackBarHelper.error(context, 'Tidak dapat membuka aplikasi email');
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        SnackBarHelper.error(context, 'Error: $e');
+      }
     }
   }
 
@@ -613,74 +550,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 0.8, // DIKURANGI
                                     ),
-                                  ),
-                          ),
-                        ),
-
-                        // Tombol Login Sebagai Guest
-                        const SizedBox(height: 12), // DIKECILKAN
-                        Container(
-                          height: 44, // DIKECILKAN dari 45-50
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [
-                                Color(0xFF757575),
-                                Color(0xFF9E9E9E),
-                              ],
-                            ),
-                            borderRadius:
-                                BorderRadius.circular(10), // DIKECILKAN
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.4),
-                                blurRadius: 6, // DIKURANGI dari 8
-                                offset: const Offset(0, 3), // DIKURANGI dari 4
-                              ),
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            onPressed: _isGuestLoading ? null : _loginAsGuest,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(10), // DIKECILKAN
-                              ),
-                            ),
-                            child: _isGuestLoading
-                                ? const SizedBox(
-                                    width: 20, // DIKECILKAN
-                                    height: 20, // DIKECILKAN
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2.5, // DIKURANGI
-                                    ),
-                                  )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.person_outline,
-                                        color: Colors.white,
-                                        size: 16, // DIKECILKAN
-                                      ),
-                                      const SizedBox(width: 6), // DIKECILKAN
-                                      Flexible(
-                                        child: Text(
-                                          'LOGIN SEBAGAI GUEST',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12, // DIKECILKAN
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 0.3, // DIKURANGI
-                                          ),
-                                          textAlign: TextAlign.center,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
                                   ),
                           ),
                         ),

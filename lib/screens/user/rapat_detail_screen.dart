@@ -1,46 +1,44 @@
-// lib/screens/pic/pic_rapat_detail.dart
-
-import 'package:absen_app/Models/models/rapat.dart';
 import 'package:absen_app/Models/services/rapat_api_service.dart';
-import 'package:absen_app/screens/admin/meeting_attendance.dart';
-import 'package:absen_app/screens/pic/pic_upload_files.dart';
+import 'package:absen_app/config/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class PICRapatDetail extends StatefulWidget {
-  final Rapat rapat;
+class RapatDetailScreen extends StatefulWidget {
+  final String rapatId;
 
-  const PICRapatDetail({super.key, required this.rapat});
+  const RapatDetailScreen({super.key, required this.rapatId});
 
   @override
-  State<PICRapatDetail> createState() => _PICRapatDetailState();
+  State<RapatDetailScreen> createState() => _RapatDetailScreenState();
 }
 
-class _PICRapatDetailState extends State<PICRapatDetail> {
+class _RapatDetailScreenState extends State<RapatDetailScreen> {
   final RapatApiService _apiService = RapatApiService();
-  bool _isLoadingFiles = true;
+  bool _isLoading = true;
+  String? _errorMessage;
   Map<String, dynamic>? _rapatData;
 
   @override
   void initState() {
     super.initState();
-    _fetchRapatDetails();
+    _fetchDetail();
   }
 
-  Future<void> _fetchRapatDetails() async {
+  Future<void> _fetchDetail() async {
     try {
-      final data = await _apiService.fetchRapatDetail(widget.rapat.idRapat);
+      final data = await _apiService.fetchRapatDetail(widget.rapatId);
       if (mounted) {
         setState(() {
           _rapatData = data;
-          _isLoadingFiles = false;
+          _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _isLoadingFiles = false;
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          _isLoading = false;
         });
       }
     }
@@ -54,9 +52,11 @@ class _PICRapatDetailState extends State<PICRapatDetail> {
         );
       }
 
+      // 1. Dapatkan Signed URL dari backend
       final urlString = await _apiService.getDownloadUrl(fileId);
       final Uri url = Uri.parse(urlString);
 
+      // 2. Buka URL di browser eksternal
       if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
         throw Exception('Tidak dapat membuka link download');
       }
@@ -73,262 +73,178 @@ class _PICRapatDetailState extends State<PICRapatDetail> {
     }
   }
 
-  // Helper untuk warna status
-  Color _getStatusColor(String status) {
-    final s = status.toLowerCase();
-    if (s.contains('diterima')) return Colors.green;
-    if (s.contains('berlangsung')) return Colors.blue;
-    if (s.contains('selesai')) return Colors.grey;
-    if (s.contains('ditolak')) return Colors.red;
-    if (s.contains('menunggu')) return Colors.orange;
-    return Colors.purple;
-  }
-
-  // Helper untuk ikon status
-  IconData _getStatusIcon(String status) {
-    final s = status.toLowerCase();
-    if (s.contains('diterima')) return Icons.check_circle;
-    if (s.contains('berlangsung')) return Icons.play_circle_filled;
-    if (s.contains('selesai')) return Icons.history;
-    if (s.contains('ditolak')) return Icons.cancel;
-    if (s.contains('menunggu')) return Icons.pending_actions;
-    return Icons.help;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final bool canShowAttendance = widget.rapat.statusRapat != 'Menunggu' &&
-        widget.rapat.statusRapat != 'Ditolak';
-
-    // Helper style untuk tombol aksi
-    ButtonStyle actionButtonStyle(Color color) {
-      return ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        textStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-        ),
-      );
-    }
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF0F6FF),
       appBar: AppBar(
-        title: const Text('Detail Rapat',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF1976D2), Color(0xFF42A5F5)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('Detail Rapat'),
+        backgroundColor: const Color(0xFF1E3A8A),
+        foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --- KARTU INFORMASI UTAMA ---
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.rapat.judul,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Chip(
-                      avatar: Icon(_getStatusIcon(widget.rapat.statusRapat),
-                          color: _getStatusColor(widget.rapat.statusRapat),
-                          size: 18),
-                      label: Text(
-                        widget.rapat.statusRapat,
-                        style: TextStyle(
-                            color: _getStatusColor(widget.rapat.statusRapat),
-                            fontWeight: FontWeight.bold),
-                      ),
-                      backgroundColor: _getStatusColor(widget.rapat.statusRapat)
-                          .withOpacity(0.1),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      side: BorderSide.none,
-                    ),
-                    const Divider(height: 24),
-                    Text(
-                      widget.rapat.deskripsi.isNotEmpty
-                          ? widget.rapat.deskripsi
-                          : 'Tidak ada deskripsi untuk rapat ini.',
-                      style: TextStyle(
-                          fontSize: 15, color: Colors.grey[700], height: 1.5),
-                    ),
-                  ],
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: Colors.red, size: 60),
+                      const SizedBox(height: 16),
+                      Text(_errorMessage!, textAlign: TextAlign.center),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _fetchDetail,
+                        child: const Text('Coba Lagi'),
+                      )
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeaderCard(),
+                      const SizedBox(height: 16),
+                      _buildInfoCard(),
+                      const SizedBox(height: 16),
+                      _buildFilesSection(),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // --- KARTU DETAIL WAKTU & LOKASI ---
-            _buildSectionTitle('Waktu & Lokasi'),
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    _buildDetailRow(Icons.calendar_today_outlined, "Tanggal",
-                        widget.rapat.tanggalFormatted),
-                    _buildDetailRow(
-                      Icons.access_time_outlined,
-                      "Waktu",
-                      '${widget.rapat.waktuMulaiFormatted} - ${widget.rapat.waktuSelesaiFormatted} WIB',
-                    ),
-                    const Divider(height: 20),
-                    _buildDetailRow(Icons.business_outlined, "Cabang",
-                        widget.rapat.namaCabang),
-                    _buildDetailRow(Icons.meeting_room_outlined, "Ruangan",
-                        widget.rapat.namaRuangan),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // --- KARTU DETAIL PENGAJU & ID ---
-            _buildSectionTitle('Informasi Tambahan'),
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    _buildDetailRow(Icons.person_outline, "Diajukan Oleh",
-                        widget.rapat.namaPengaju),
-                    _buildDetailRow(
-                        Icons.tag, "ID Rapat", widget.rapat.idRapat.toString()),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // --- FILES SECTION ---
-            if (_isLoadingFiles)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (_rapatData != null)
-              _buildFilesSection(),
-
-            if (canShowAttendance) ...[
-              const SizedBox(height: 24),
-              // Upload File Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PICUploadFiles(
-                          rapatId: widget.rapat.idRapat,
-                          rapatTitle: widget.rapat.judul,
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.cloud_upload_rounded),
-                  label: const Text('Upload File'),
-                  style: actionButtonStyle(const Color(0xFF1976D2)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Attendance Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            MeetingAttendance(rapat: widget.rapat),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.people_alt_outlined),
-                  label: const Text('Lihat Daftar Absensi'),
-                  style: actionButtonStyle(Colors.teal),
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
-      child: Text(
-        title,
-        style: const TextStyle(
-            fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-      ),
-    );
-  }
+  Widget _buildHeaderCard() {
+    final judul = _rapatData?['judul'] ?? 'Tanpa Judul';
+    final status = _rapatData?['status'] != null
+        ? _rapatData!['status']['status_rapat']
+        : '-';
 
-  Widget _buildDetailRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: const Color(0xFF1E3A8A).withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4))
+        ],
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.grey[700], size: 20),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                const SizedBox(height: 2),
-                Text(
-                  value.isNotEmpty ? value : '-',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: Colors.black87),
-                ),
-              ],
+          Text(judul,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
             ),
+            child: Text(status,
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w500)),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildInfoCard() {
+    String tanggal = _rapatData?['tanggal'] ?? '-';
+    try {
+      if (tanggal != '-') {
+        final date = DateTime.parse(tanggal);
+        tanggal = DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(date);
+      }
+    } catch (_) {}
+
+    String start = _rapatData?['waktu_start'] ?? '';
+    String end = _rapatData?['waktu_end'] ?? '';
+
+    // Simple substring to remove seconds if present (HH:mm:ss -> HH:mm)
+    if (start.length > 5) start = start.substring(0, 5);
+    if (end.length > 5) end = end.substring(0, 5);
+
+    final waktu = (start.isNotEmpty || end.isNotEmpty) ? '$start - $end' : '-';
+
+    final ruangan = _rapatData?['room'] != null
+        ? _rapatData!['room']['nama_ruangan'] ?? _rapatData!['room']['room']
+        : '-';
+    final cabang = _rapatData?['cabang'] != null
+        ? _rapatData!['cabang']['nama_cabang'] ??
+            _rapatData!['cabang']['cabang']
+        : '-';
+    final deskripsi = _rapatData?['desc'] ?? '-';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildInfoRow(Icons.calendar_today, 'Tanggal', tanggal),
+          const Divider(height: 24),
+          _buildInfoRow(Icons.access_time, 'Waktu', waktu),
+          const Divider(height: 24),
+          _buildInfoRow(Icons.meeting_room, 'Ruangan', ruangan),
+          const Divider(height: 24),
+          _buildInfoRow(Icons.location_city, 'Cabang', cabang),
+          const Divider(height: 24),
+          _buildInfoRow(Icons.description, 'Deskripsi', deskripsi),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Colors.grey[600]),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500)),
+              const SizedBox(height: 4),
+              Text(value,
+                  style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -352,8 +268,12 @@ class _PICRapatDetailState extends State<PICRapatDetail> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Dokumen Rapat'),
-        const SizedBox(height: 8),
+        const Text('Dokumen Rapat',
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B))),
+        const SizedBox(height: 16),
         // Build category sections
         ...filesByCategory.entries.map((entry) {
           final categoryId = entry.key;

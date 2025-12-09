@@ -25,8 +25,13 @@ class RapatApiService {
     required String waktuStart, // HH:mm
     String? waktuEnd, // HH:mm or null
     String? desc,
-    String? idUserPengaju, // <-- PERUBAHAN: Tambahkan parameter untuk pengaju
-    List<int>? divisions, // <-- Diubah menjadi 'divisions'
+    String? idUserPengaju,
+    List<int>? divisions,
+    // TAMBAHAN: File upload parameters
+    List<File>? filesMateri,
+    List<File>? filesNotulensi,
+    List<File>? filesDokumentasi,
+    List<File>? filesLainnya,
   }) async {
     final token = await _authService.getToken();
     if (token == null) {
@@ -35,30 +40,74 @@ class RapatApiService {
 
     final uri = Uri.parse('$_baseUrl/rapat');
 
-    final response = await http
-        .post(
-          uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: jsonEncode({
-            'id_cabang': idCabang,
-            'id_room': idRoom,
-            'judul': judul,
-            'tanggal': tanggal,
-            'waktu_start': waktuStart,
-            if (waktuEnd != null) 'waktu_end': waktuEnd,
-            if (desc != null) 'desc': desc,
-            'id_user_pengaju':
-                idUserPengaju, // Selalu kirim ID pengaju yang dipilih dari UI
-            // PERBAIKAN KRUSIAL: Menggunakan key 'divisions' yang mungkin diharapkan backend
-            if (divisions != null && divisions.isNotEmpty)
-              'divisions': divisions,
-          }),
-        )
-        .timeout(const Duration(seconds: 30));
+    // PERUBAHAN: Gunakan MultipartRequest untuk upload file
+    var request = http.MultipartRequest('POST', uri);
+
+    // Add headers
+    request.headers['Accept'] = 'application/json';
+    request.headers['Authorization'] = 'Bearer $token';
+
+    // Add form fields
+    request.fields['id_cabang'] = idCabang.toString();
+    request.fields['id_room'] = idRoom.toString();
+    request.fields['judul'] = judul;
+    request.fields['tanggal'] = tanggal;
+    request.fields['waktu_start'] = waktuStart;
+    if (waktuEnd != null) request.fields['waktu_end'] = waktuEnd;
+    if (desc != null) request.fields['desc'] = desc;
+    if (idUserPengaju != null)
+      request.fields['id_user_pengaju'] = idUserPengaju;
+
+    // Add divisions
+    if (divisions != null && divisions.isNotEmpty) {
+      for (int i = 0; i < divisions.length; i++) {
+        request.fields['division_ids[$i]'] = divisions[i].toString();
+      }
+    }
+
+    // Add files - Materi
+    if (filesMateri != null) {
+      for (var file in filesMateri) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'files_materi[]',
+          file.path,
+        ));
+      }
+    }
+
+    // Add files - Notulensi
+    if (filesNotulensi != null) {
+      for (var file in filesNotulensi) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'files_notulensi[]',
+          file.path,
+        ));
+      }
+    }
+
+    // Add files - Dokumentasi
+    if (filesDokumentasi != null) {
+      for (var file in filesDokumentasi) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'files_dokumentasi[]',
+          file.path,
+        ));
+      }
+    }
+
+    // Add files - Lainnya
+    if (filesLainnya != null) {
+      for (var file in filesLainnya) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'files_lainnya[]',
+          file.path,
+        ));
+      }
+    }
+
+    final streamedResponse =
+        await request.send().timeout(const Duration(seconds: 60));
+    final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 201) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -419,42 +468,93 @@ class RapatApiService {
     String? desc,
     required int idCabang,
     required int idRuangan,
-    String? idPengaju, // Dibuat opsional dan tidak akan dikirim
+    String? idPengaju,
     required int idStatus,
     required String tanggal,
     required String waktuStart,
     String? waktuEnd,
     List<int>? divisionIds,
+    // TAMBAHAN: File upload parameters
+    List<File>? filesMateri,
+    List<File>? filesNotulensi,
+    List<File>? filesDokumentasi,
+    List<File>? filesLainnya,
   }) async {
     final token = await _authService.getToken();
     if (token == null) throw Exception('Tidak terautentikasi');
 
     final uri = Uri.parse('$_baseUrl/rapat/$idRapat');
 
-    final response = await http
-        .put(
-          uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          // --- BAGIAN YANG DIPERBAIKI ---
-          body: jsonEncode({
-            'judul': judul,
-            'tanggal': tanggal,
-            'id_cabang': idCabang,
-            'id_room': idRuangan, // <-- HANYA SATU KALI
-            'id_status': idStatus,
-            'waktu_start': waktuStart,
-            'desc': desc,
-            'waktu_end': waktuEnd,
-            if (divisionIds != null) 'division_ids': divisionIds,
-            // 'id_user_pengaju' dihapus karena tidak seharusnya diubah
-          }),
-          // -----------------------------
-        )
-        .timeout(const Duration(seconds: 30));
+    // PERUBAHAN: Gunakan MultipartRequest untuk upload file
+    var request = http.MultipartRequest('POST', uri);
+
+    // Add _method field for Laravel PUT emulation
+    request.fields['_method'] = 'PUT';
+
+    // Add headers
+    request.headers['Accept'] = 'application/json';
+    request.headers['Authorization'] = 'Bearer $token';
+
+    // Add form fields
+    request.fields['judul'] = judul;
+    request.fields['tanggal'] = tanggal;
+    request.fields['id_cabang'] = idCabang.toString();
+    request.fields['id_room'] = idRuangan.toString();
+    request.fields['id_status'] = idStatus.toString();
+    request.fields['waktu_start'] = waktuStart;
+    if (desc != null) request.fields['desc'] = desc;
+    if (waktuEnd != null) request.fields['waktu_end'] = waktuEnd;
+
+    // Add divisions
+    if (divisionIds != null) {
+      for (int i = 0; i < divisionIds.length; i++) {
+        request.fields['division_ids[$i]'] = divisionIds[i].toString();
+      }
+    }
+
+    // Add files - Materi
+    if (filesMateri != null) {
+      for (var file in filesMateri) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'files_materi[]',
+          file.path,
+        ));
+      }
+    }
+
+    // Add files - Notulensi
+    if (filesNotulensi != null) {
+      for (var file in filesNotulensi) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'files_notulensi[]',
+          file.path,
+        ));
+      }
+    }
+
+    // Add files - Dokumentasi
+    if (filesDokumentasi != null) {
+      for (var file in filesDokumentasi) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'files_dokumentasi[]',
+          file.path,
+        ));
+      }
+    }
+
+    // Add files - Lainnya
+    if (filesLainnya != null) {
+      for (var file in filesLainnya) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'files_lainnya[]',
+          file.path,
+        ));
+      }
+    }
+
+    final streamedResponse =
+        await request.send().timeout(const Duration(seconds: 60));
+    final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
@@ -655,6 +755,103 @@ class RapatApiService {
         'Gagal melakukan absensi (status ${response.statusCode})');
   }
 
+  // Method lama attendRapat bisa dipertahankan atau dideprecate
+  // ...
+
+  /// Validasi QR token dan dapatkan session token untuk foto nanti.
+  /// Dipanggil SEGERA setelah QR di-scan, sebelum foto diambil.
+  Future<Map<String, dynamic>> validateQrToken(String qrToken) async {
+    final token = await _authService.getToken();
+    if (token == null) {
+      throw Exception('Tidak terautentikasi');
+    }
+
+    final uri = Uri.parse('$_baseUrl/rapat/validate-qr');
+
+    final response = await http
+        .post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'scanned_token': qrToken,
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    final responseBody = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      if (responseBody is Map<String, dynamic>) {
+        return responseBody;
+      } else {
+        throw Exception('Format respons tidak valid');
+      }
+    }
+
+    // Handle error
+    final errorMessage = (responseBody is Map<String, dynamic>)
+        ? responseBody['message']?.toString()
+        : responseBody.toString();
+    throw Exception(errorMessage ??
+        'Gagal validasi QR code (status ${response.statusCode})');
+  }
+
+  /// Menggunakan QR token dan foto wajah untuk absensi.
+  /// Sekarang mendukung session_token sebagai alternatif dari scanned_token.
+  Future<Map<String, dynamic>> attendRapatWithPhoto(String qrToken, File photo,
+      {String? sessionToken}) async {
+    final token = await _authService.getToken();
+    if (token == null) {
+      throw Exception('Tidak terautentikasi');
+    }
+
+    final uri = Uri.parse('$_baseUrl/rapat/scan-absen');
+
+    // Gunakan MultipartRequest karena ada file upload
+    var request = http.MultipartRequest('POST', uri);
+
+    request.headers['Accept'] = 'application/json';
+    request.headers['Authorization'] = 'Bearer $token';
+
+    // Kirim session_token jika ada, kalau tidak kirim scanned_token
+    if (sessionToken != null && sessionToken.isNotEmpty) {
+      request.fields['session_token'] = sessionToken;
+    } else {
+      request.fields['scanned_token'] = qrToken;
+    }
+
+    // Tambahkan file foto
+    request.files.add(await http.MultipartFile.fromPath(
+      'face_photo',
+      photo.path,
+    ));
+
+    final streamedResponse =
+        await request.send().timeout(const Duration(seconds: 30));
+    final response = await http.Response.fromStream(streamedResponse);
+    final responseBody = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      if (responseBody is Map<String, dynamic>) {
+        return responseBody;
+      } else if (responseBody is String) {
+        return {'message': responseBody};
+      } else {
+        return {'message': 'Absensi berhasil diproses.'};
+      }
+    }
+
+    final errorMessage = (responseBody is Map<String, dynamic>)
+        ? responseBody['message']?.toString()
+        : responseBody.toString();
+    throw Exception(errorMessage ??
+        'Gagal melakukan absensi (status ${response.statusCode})');
+  }
+
   /// Mengambil daftar absensi untuk rapat tertentu.
   Future<List<Map<String, dynamic>>> fetchAbsensiRapat(String idRapat) async {
     final token = await _authService.getToken();
@@ -683,7 +880,78 @@ class RapatApiService {
     } else if (response.statusCode == 404) {
       throw Exception('Rapat tidak ditemukan.');
     } else {
-      throw Exception('Gagal memuat data absensi (Status: ${response.statusCode})');
+      throw Exception(
+          'Gagal memuat data absensi (Status: ${response.statusCode})');
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchRapatDetail(String id) async {
+    final token = await _authService.getToken();
+    if (token == null) {
+      throw Exception('Tidak terautentikasi');
+    }
+
+    final uri = Uri.parse('$_baseUrl/rapat/$id');
+    final response = await http.get(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(const Duration(seconds: 30));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else if (response.statusCode == 404) {
+      throw Exception('Rapat tidak ditemukan');
+    } else {
+      throw Exception(
+          'Gagal memuat detail rapat (Status: ${response.statusCode})');
+    }
+  }
+
+  Future<String> getDownloadUrl(String fileId) async {
+    final token = await _authService.getToken();
+    if (token == null) throw Exception('Tidak terautentikasi');
+
+    final response = await http.get(
+      Uri.parse('$_baseUrl/rapat/files/$fileId/download-url'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body);
+      return body['download_url'];
+    } else {
+      final body = jsonDecode(response.body);
+      throw Exception(body['message'] ?? 'Gagal mendapatkan link download');
+    }
+  }
+
+  /// Delete a file from a meeting
+  Future<void> deleteFile(String fileId) async {
+    final token = await _authService.getToken();
+    if (token == null) throw Exception('Tidak terautentikasi');
+
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/rapat/files/$fileId'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success'] != true) {
+        throw Exception(data['message'] ?? 'Gagal menghapus file');
+      }
+    } else {
+      final errorData = jsonDecode(response.body);
+      throw Exception(errorData['message'] ?? 'Gagal menghapus file');
     }
   }
 }

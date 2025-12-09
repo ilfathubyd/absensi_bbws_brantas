@@ -1,7 +1,13 @@
+import 'dart:io';
 import 'package:absen_app/Models/models/rapat.dart';
 import 'package:absen_app/Models/services/rapat_api_service.dart';
 import 'package:absen_app/Models/services/participant_selector_page.dart';
+import 'package:absen_app/services/file_upload_service.dart';
+import 'package:absen_app/widgets/upload_progress_dialog.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:absen_app/utils/snackbar_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:absen_app/Models/models/division.dart';
 
@@ -46,6 +52,20 @@ class _EditMeetingState extends State<EditMeeting> {
   int? _selectedRuanganId;
   String? _selectedPengajuId;
   int? _selectedStatusId;
+
+  // TAMBAHAN: File upload state
+  List<File> _filesMateri = [];
+  List<File> _filesNotulensi = [];
+  List<File> _filesDokumentasi = [];
+  List<File> _filesLainnya = [];
+
+  // Upload progress tracking
+  bool _isUploadingFiles = false;
+  double _uploadProgress = 0.0;
+
+  // State untuk existing files dari server
+  List<Map<String, dynamic>> _existingFiles = [];
+  bool _isLoadingFiles = false;
   List<Division> _selectedDivisions = [];
 
   // State untuk tanggal dan waktu (disamakan dengan create_meeting)
@@ -70,6 +90,7 @@ class _EditMeetingState extends State<EditMeeting> {
         : null;
 
     _loadInitialData();
+    _loadExistingFiles();
   }
 
   Future<void> _loadInitialData() async {
@@ -120,11 +141,7 @@ class _EditMeetingState extends State<EditMeeting> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Gagal memuat data awal: $e'),
-              backgroundColor: Colors.red),
-        );
+        SnackBarHelper.error(context, 'Gagal memuat data awal: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoadingDependencies = false);
@@ -142,14 +159,64 @@ class _EditMeetingState extends State<EditMeeting> {
       if (mounted) setState(() => _ruanganList = rooms);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Gagal memuat ruangan: $e'),
-              backgroundColor: Colors.red),
-        );
+        SnackBarHelper.error(context, 'Gagal memuat ruangan: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoadingRooms = false);
+    }
+  }
+
+  Future<void> _loadExistingFiles() async {
+    setState(() => _isLoadingFiles = true);
+    try {
+      final rapatDetail =
+          await _rapatApiService.fetchRapatDetail(widget.rapat.idRapat);
+      final files = rapatDetail['files'] as List<dynamic>? ?? [];
+
+      if (mounted) {
+        setState(() {
+          _existingFiles = files.map((f) => f as Map<String, dynamic>).toList();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackBarHelper.error(context, 'Gagal memuat file: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingFiles = false);
+    }
+  }
+
+  Future<void> _deleteExistingFile(String fileId) async {
+    try {
+      await _rapatApiService.deleteFile(fileId);
+
+      setState(() {
+        _existingFiles.removeWhere((f) => f['id_file'].toString() == fileId);
+      });
+
+      if (mounted) {
+        SnackBarHelper.success(context, 'File berhasil dihapus');
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackBarHelper.error(context, 'Gagal menghapus file: $e');
+      }
+    }
+  }
+
+  int _getCategoryId(String category) {
+    switch (category) {
+      case 'materi':
+        return 1;
+      case 'notulensi':
+        return 2;
+      case 'dokumentasi':
+        return 3;
+      case 'lainnya':
+        return 4;
+      default:
+        return 4;
     }
   }
 
@@ -509,6 +576,11 @@ class _EditMeetingState extends State<EditMeeting> {
                   ),
                 ),
               ),
+
+              // File Management Section
+              SizedBox(height: isSmallScreen ? 24 : 32),
+              _buildFileManagementSection(isSmallScreen),
+
               SizedBox(height: isSmallScreen ? 24 : 32),
               SizedBox(
                 width: double.infinity,
@@ -532,8 +604,11 @@ class _EditMeetingState extends State<EditMeeting> {
                               color: Colors.white, strokeWidth: 3),
                         )
                       : const Icon(Icons.save_as),
-                  label:
-                      Text(_isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'),
+                  label: Text(_isSubmitting
+                      ? (_isUploadingFiles
+                          ? 'Mengupload File...'
+                          : 'Menyimpan...')
+                      : 'Simpan Perubahan'),
                 ),
               ),
               SizedBox(height: isSmallScreen ? 20 : 24),
@@ -618,7 +693,30 @@ class _EditMeetingState extends State<EditMeeting> {
     final end =
         '${_two(_selectedEndTime!.hour)}:${_two(_selectedEndTime!.minute)}';
 
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+      _isUploadingFiles = true;
+      _uploadProgress = 0.0;
+    });
+
+    // Show progress dialog if there are files to upload
+    final totalFiles = _filesMateri.length +
+        _filesNotulensi.length +
+        _filesDokumentasi.length +
+        _filesLainnya.length;
+
+    if (totalFiles > 0) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => UploadProgressDialog(
+          progress: _uploadProgress,
+          currentFile: 1,
+          totalFiles: totalFiles,
+        ),
+      );
+    }
+
     try {
       await _rapatApiService.updateRapat(
         idRapat: widget.rapat.idRapat,
@@ -632,8 +730,19 @@ class _EditMeetingState extends State<EditMeeting> {
         waktuStart: start,
         waktuEnd: end,
         divisionIds: _selectedDivisions.map((d) => d.id).toList(),
+        // Add files
+        filesMateri: _filesMateri.isEmpty ? null : _filesMateri,
+        filesNotulensi: _filesNotulensi.isEmpty ? null : _filesNotulensi,
+        filesDokumentasi: _filesDokumentasi.isEmpty ? null : _filesDokumentasi,
+        filesLainnya: _filesLainnya.isEmpty ? null : _filesLainnya,
       );
+
       if (mounted) {
+        // Close progress dialog if it was shown
+        if (totalFiles > 0) {
+          Navigator.of(context).pop();
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Rapat berhasil diperbarui ✅'),
             backgroundColor: Colors.green));
@@ -641,12 +750,21 @@ class _EditMeetingState extends State<EditMeeting> {
       }
     } catch (e) {
       if (mounted) {
+        // Close progress dialog if it was shown
+        if (totalFiles > 0) {
+          Navigator.of(context).pop();
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Gagal memperbarui rapat: ${e.toString()}'),
             backgroundColor: Colors.red));
       }
     } finally {
-      if (mounted) setState(() => _isSubmitting = false);
+      if (mounted)
+        setState(() {
+          _isSubmitting = false;
+          _isUploadingFiles = false;
+        });
     }
   }
 
@@ -694,5 +812,543 @@ class _EditMeetingState extends State<EditMeeting> {
     } finally {
       if (mounted) setState(() => _isDeleting = false);
     }
+  }
+
+  // ============ FILE MANAGEMENT METHODS ============
+
+  Widget _buildFileManagementSection(bool isSmallScreen) {
+    return Card(
+      elevation: 4,
+      shadowColor: Colors.grey.withOpacity(0.2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader('Lampiran File Rapat', Icons.attach_file),
+            const SizedBox(height: 16),
+
+            // Instructions
+            if (_existingFiles.isEmpty &&
+                _filesMateri.isEmpty &&
+                _filesNotulensi.isEmpty &&
+                _filesDokumentasi.isEmpty &&
+                _filesLainnya.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue.shade700),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Belum ada file terlampir. Klik tombol "Pilih" untuk menambahkan file.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Existing Files Section
+            if (_isLoadingFiles)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_existingFiles.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                'File yang Sudah Terlampir',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildExistingFilesGrid(),
+              const Divider(height: 32),
+            ],
+
+            const SizedBox(height: 16),
+
+            // File picker sections for each category
+            _buildFilePickerButton(
+              'Materi',
+              'materi',
+              const Color(0xFF2563EB),
+              _filesMateri,
+            ),
+            const SizedBox(height: 16),
+            _buildFilePickerButton(
+              'Notulensi',
+              'notulensi',
+              const Color(0xFF10B981),
+              _filesNotulensi,
+            ),
+            const SizedBox(height: 16),
+            _buildFilePickerButton(
+              'Dokumentasi',
+              'dokumentasi',
+              const Color(0xFFF59E0B),
+              _filesDokumentasi,
+            ),
+            const SizedBox(height: 16),
+            _buildFilePickerButton(
+              'Lainnya',
+              'lainnya',
+              const Color(0xFF8B5CF6),
+              _filesLainnya,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExistingFilesGrid() {
+    // Group files by category
+    final filesByCategory = <String, List<Map<String, dynamic>>>{};
+    for (var file in _existingFiles) {
+      final categoryId = file['id_category']?.toString() ?? '4';
+      String categoryName;
+      switch (categoryId) {
+        case '1':
+          categoryName = 'Materi';
+          break;
+        case '2':
+          categoryName = 'Notulensi';
+          break;
+        case '3':
+          categoryName = 'Dokumentasi';
+          break;
+        default:
+          categoryName = 'Lainnya';
+      }
+      filesByCategory.putIfAbsent(categoryName, () => []);
+      filesByCategory[categoryName]!.add(file);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: filesByCategory.entries.map((entry) {
+        final categoryName = entry.key;
+        final files = entry.value;
+        Color categoryColor;
+        switch (categoryName) {
+          case 'Materi':
+            categoryColor = const Color(0xFF2563EB);
+            break;
+          case 'Notulensi':
+            categoryColor = const Color(0xFF10B981);
+            break;
+          case 'Dokumentasi':
+            categoryColor = const Color(0xFFF59E0B);
+            break;
+          default:
+            categoryColor = const Color(0xFF8B5CF6);
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: categoryColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    categoryName,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: categoryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ...files.map((file) => _buildExistingFileItem(file, categoryColor)),
+            const SizedBox(height: 12),
+          ],
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildExistingFileItem(Map<String, dynamic> file, Color color) {
+    final fileName = file['file_name']?.toString() ?? 'Unknown';
+    final fileId = file['id_file']?.toString() ?? '';
+    final fileExt = fileName.split('.').last.toUpperCase();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.2), width: 1),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(
+            child: Text(
+              fileExt,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 10,
+              ),
+            ),
+          ),
+        ),
+        title: Text(
+          fileName,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1E293B),
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          'File terlampir',
+          style: TextStyle(
+            fontSize: 11,
+            color: color.withOpacity(0.7),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+          onPressed: () => _confirmDeleteExistingFile(fileId, fileName),
+          tooltip: 'Hapus',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilePickerButton(
+    String label,
+    String category,
+    Color color,
+    List<File> files,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(10),
+                topRight: Radius.circular(10),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child:
+                      Icon(_getCategoryIcon(category), color: color, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
+                      ),
+                      Text(
+                        '${files.length} file${files.length != 1 ? 's' : ''} baru dipilih',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _pickFiles(category),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Pilih', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // New file list
+          if (files.isNotEmpty)
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(8),
+              itemCount: files.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 4),
+              itemBuilder: (context, index) {
+                final file = files[index];
+                final fileName = FileUploadService.getFileName(file);
+                final fileSize = FileUploadService.getFileSize(file);
+                final fileExt = FileUploadService.getFileExtension(file);
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.03),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: color.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Text(
+                          fileExt,
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      fileName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1E293B),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      fileSize,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: color.withOpacity(0.7),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    trailing: IconButton(
+                      icon:
+                          const Icon(Icons.close, color: Colors.red, size: 18),
+                      onPressed: () => _removeFile(category, index),
+                      tooltip: 'Hapus',
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'materi':
+        return Icons.book_rounded;
+      case 'notulensi':
+        return Icons.edit_note_rounded;
+      case 'dokumentasi':
+        return Icons.image_rounded;
+      case 'lainnya':
+        return Icons.folder_rounded;
+      default:
+        return Icons.insert_drive_file_rounded;
+    }
+  }
+
+  Future<void> _pickFiles(String category) async {
+    if (kIsWeb) {
+      SnackBarHelper.warning(
+        context,
+        'Upload file tidak didukung di versi web. Silakan gunakan aplikasi mobile.',
+      );
+      return;
+    }
+
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: [
+          'jpg',
+          'jpeg',
+          'png',
+          'pdf',
+          'doc',
+          'docx',
+          'ppt',
+          'pptx',
+          'xls',
+          'xlsx',
+          'txt',
+          'zip',
+          'rar',
+          '7z',
+          'mp4',
+          'mp3',
+          'wav'
+        ],
+      );
+
+      if (result != null) {
+        List<File> selectedFiles =
+            result.paths.map((path) => File(path!)).toList();
+
+        // Validate each file
+        List<File> validFiles = [];
+        for (var file in selectedFiles) {
+          StringBuffer errorMsg = StringBuffer();
+          if (FileUploadService.validateFile(file, errorMessage: errorMsg)) {
+            validFiles.add(file);
+          } else {
+            SnackBarHelper.error(context, errorMsg.toString());
+          }
+        }
+
+        if (validFiles.isNotEmpty) {
+          setState(() {
+            switch (category) {
+              case 'materi':
+                _filesMateri.addAll(validFiles);
+                break;
+              case 'notulensi':
+                _filesNotulensi.addAll(validFiles);
+                break;
+              case 'dokumentasi':
+                _filesDokumentasi.addAll(validFiles);
+                break;
+              case 'lainnya':
+                _filesLainnya.addAll(validFiles);
+                break;
+            }
+          });
+
+          SnackBarHelper.success(
+            context,
+            '✓ ${validFiles.length} file ditambahkan ke $category',
+          );
+        }
+      }
+    } catch (e) {
+      SnackBarHelper.error(context, 'Gagal memilih file: $e');
+    }
+  }
+
+  void _removeFile(String category, int index) {
+    setState(() {
+      switch (category) {
+        case 'materi':
+          _filesMateri.removeAt(index);
+          break;
+        case 'notulensi':
+          _filesNotulensi.removeAt(index);
+          break;
+        case 'dokumentasi':
+          _filesDokumentasi.removeAt(index);
+          break;
+        case 'lainnya':
+          _filesLainnya.removeAt(index);
+          break;
+      }
+    });
+  }
+
+  void _confirmDeleteExistingFile(String fileId, String fileName) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Konfirmasi Hapus File'),
+        content: Text(
+            'Apakah Anda yakin ingin menghapus file "$fileName"? Tindakan ini tidak dapat diurungkan.'),
+        actions: [
+          TextButton(
+            child: const Text('Batal'),
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _deleteExistingFile(fileId);
+            },
+          ),
+        ],
+      ),
+    );
   }
 }

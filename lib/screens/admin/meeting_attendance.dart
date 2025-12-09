@@ -24,12 +24,12 @@ class _MeetingAttendanceState extends State<MeetingAttendance> {
   @override
   void initState() {
     super.initState();
-    _fetchAttendance(); // Panggilan pertama saat halaman dibuka
-    _startPolling(); // Mulai polling
+    _fetchAttendance(); // Initial load
+    _startPolling(); // Start polling for updates
   }
 
   void _startPolling() {
-    // Mulai polling setiap 5 detik
+    // Polling setiap 5 detik untuk update data
     _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!mounted) return;
       _fetchAttendance(isPolling: true);
@@ -38,7 +38,7 @@ class _MeetingAttendanceState extends State<MeetingAttendance> {
 
   @override
   void dispose() {
-    _pollingTimer?.cancel(); // Hentikan polling saat halaman ditutup
+    _pollingTimer?.cancel();
     super.dispose();
   }
 
@@ -106,8 +106,7 @@ class _MeetingAttendanceState extends State<MeetingAttendance> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () =>
-                _fetchAttendance(), // Refresh hanya mengambil data absensi
+            onPressed: () => _fetchAttendance(),
             tooltip: 'Perbarui Data',
           ),
         ],

@@ -3,13 +3,13 @@
 import 'package:absen_app/Models/models/rapat.dart';
 import 'package:absen_app/screens/admin/meeting_attendance.dart';
 import 'package:absen_app/screens/login_screen.dart';
+import 'package:absen_app/utils/snackbar_helper.dart';
 import 'package:flutter/material.dart';
 import '../../Models/models/user.dart';
 import '../../services/auth_service.dart';
-import 'create_pengajuan.dart';
+import 'pic_create_meeting.dart';
 import '../../Models/services/rapat_api_service.dart';
 import 'package:intl/intl.dart';
-import 'package:absen_app/screens/admin/meeting_qr.dart'; // Import halaman QR
 import 'package:shimmer/shimmer.dart';
 
 import 'pic_rapat_detail.dart'; // <-- Pastikan import ini ada
@@ -112,29 +112,24 @@ class _PICDashboardState extends State<PICDashboard> {
 
   Future<void> _exportMeetingData(Rapat rapat) async {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Mengekspor data rapat '${rapat.judul}'..."),
-        duration: const Duration(seconds: 3),
-        backgroundColor: Colors.blueAccent,
-      ),
+    SnackBarHelper.success(
+      context,
+      'Mengekspor data rapat "${rapat.judul}"...',
     );
 
     try {
       final filePath = await _rapatApiService.downloadAbsensiRapat(
           rapat.idRapat, rapat.judul);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text("Data rapat berhasil diekspor ke: $filePath"),
-            backgroundColor: Colors.green),
+      SnackBarHelper.success(
+        context,
+        'Data rapat "${rapat.judul}" berhasil diekspor',
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text("Gagal mengekspor data: ${e.toString()}"),
-            backgroundColor: Colors.red),
+      SnackBarHelper.error(
+        context,
+        'Gagal mengekspor data rapat: ${e.toString()}',
       );
     }
   }
@@ -545,7 +540,7 @@ class _PICDashboardState extends State<PICDashboard> {
                                 await Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                      builder: (_) => const CreatePengajuan()),
+                                      builder: (_) => const PICCreateRapat()),
                                 );
                                 _loadData();
                               },
@@ -810,7 +805,7 @@ class _PICDashboardState extends State<PICDashboard> {
               onPressed: () async {
                 await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const CreatePengajuan()),
+                  MaterialPageRoute(builder: (_) => const PICCreateRapat()),
                 );
                 _loadData();
               },
@@ -1002,24 +997,8 @@ class _PICDashboardState extends State<PICDashboard> {
                       style: _actionButtonStyle(Colors.teal),
                     ),
                   ],
-                  // Tombol QR untuk rapat yang belum selesai
-                  if (rapat.statusRapat != 'Selesai' &&
-                      rapat.statusRapat != 'Ditolak' &&
-                      rapat.statusRapat != 'Menunggu') ...[
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => MeetingQR(initialRapat: rapat)),
-                        );
-                      },
-                      icon: const Icon(Icons.qr_code, size: 16),
-                      label: const Text('QR Code'),
-                      style: _actionButtonStyle(const Color(0xFF1976D2)),
-                    ),
-                  ]
+                  // Tombol untuk rapat yang belum selesai
+                  if (rapat.idStatus != 5) ...[]
                 ],
               ),
             ],

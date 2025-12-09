@@ -5,18 +5,23 @@ import 'package:absen_app/Models/models/rapat.dart';
 import 'package:absen_app/Models/models/user.dart';
 import 'package:absen_app/Models/services/rapat_api_service.dart';
 import 'package:absen_app/screens/login_screen.dart';
+import 'package:absen_app/screens/user/meeting_history.dart';
+import 'package:absen_app/screens/user/user_shortcut_menu.dart';
 import 'package:absen_app/services/auth_service.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+
+import 'package:absen_app/screens/user/face_scan_screen.dart'; // Import FaceScanScreen
+import 'dart:io'; // Import File
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:absen_app/utils/snackbar_helper.dart';
+import 'package:absen_app/screens/user/rapat_detail_screen.dart'; // Import detail screen
 
 // TODO: Pastikan AttendanceScreen di-uncomment dan constructornya menerima objek 'Rapat'
 // import 'package:absen_app/screens/user/attendance_screen.dart';
 
 class UserDashboard extends StatefulWidget {
-  final bool isGuestMode;
-  const UserDashboard({super.key, this.isGuestMode = false});
+  const UserDashboard({super.key});
 
   @override
   State<UserDashboard> createState() => _UserDashboardState();
@@ -40,24 +45,10 @@ class _UserDashboardState extends State<UserDashboard> {
   @override
   void initState() {
     super.initState();
-    if (!widget.isGuestMode) {
-      _loadData();
-    } else {
-      setState(() {
-        _isLoading = false;
-        _currentUser = AppUser(
-          id_user: 'guest_id', // PERUBAHAN: Gunakan String, bukan int
-          id_role: 4, // Guest role
-          name: 'Guest User',
-          username: 'guest',
-          email: 'Login untuk melihat detail',
-        );
-      });
-    }
+    _loadData();
   }
 
   Future<void> _loadData() async {
-    if (widget.isGuestMode) return;
     if (!mounted) return;
     setState(() {
       _isLoading = true;
@@ -96,11 +87,9 @@ class _UserDashboardState extends State<UserDashboard> {
     if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
 
     // Tampilkan snackbar
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Sesi Anda telah berakhir. Silakan login kembali.'),
-        backgroundColor: Colors.red,
-      ),
+    SnackBarHelper.error(
+      context,
+      'Sesi Anda telah berakhir. Silakan login kembali.',
     );
 
     // Navigasi ke halaman login dan hapus semua halaman sebelumnya.
@@ -144,11 +133,12 @@ class _UserDashboardState extends State<UserDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    const List<String> appBarTitles = ['Dashboard', 'Profil'];
+    const List<String> appBarTitles = ['Dashboard', 'Riwayat', 'Profil'];
 
     // Daftar halaman/widget untuk BottomNavBar
     final List<Widget> pages = [
       _buildDashboardPage(),
+      const MeetingHistoryPage(showAppBar: false),
       _buildProfilePage(),
     ];
 
@@ -193,26 +183,234 @@ class _UserDashboardState extends State<UserDashboard> {
         elevation: 0,
       ),
       body: pages[_currentPageIndex], // Body akan berganti sesuai index
-      bottomNavigationBar: NavigationBar(
-        onDestinationSelected: (int index) {
-          setState(() {
-            _currentPageIndex = index;
-          });
-        },
-        indicatorColor: const Color(0xFFFFD600).withOpacity(0.5),
-        selectedIndex: _currentPageIndex,
-        destinations: const <Widget>[
-          NavigationDestination(
-            selectedIcon: Icon(Icons.dashboard),
-            icon: Icon(Icons.dashboard_outlined),
-            label: 'Dashboard',
+      floatingActionButton: Container(
+        width: 70,
+        height: 70,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFFFD600),
+              Color(0xFFFFC107),
+            ],
           ),
-          NavigationDestination(
-            selectedIcon: Icon(Icons.person),
-            icon: Icon(Icons.person_outline),
-            label: 'Profil',
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFFD600).withOpacity(0.4),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+              spreadRadius: 2,
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _openQRScanner,
+            borderRadius: BorderRadius.circular(35),
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 2,
+                ),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.qr_code_scanner,
+                  color: Color(0xFF1E3A8A),
+                  size: 36,
+                ),
+              ),
+            ),
           ),
-        ],
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8,
+        color: Colors.white,
+        child: SizedBox(
+          height: 65,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Dashboard
+                Flexible(
+                  flex: 1,
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _currentPageIndex = 0;
+                      });
+                    },
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _currentPageIndex == 0
+                              ? Icons.dashboard
+                              : Icons.dashboard_outlined,
+                          color: _currentPageIndex == 0
+                              ? const Color(0xFF1E3A8A)
+                              : Colors.grey,
+                          size: 22,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Dashboard',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: _currentPageIndex == 0
+                                ? const Color(0xFF1E3A8A)
+                                : Colors.grey,
+                            fontWeight: _currentPageIndex == 0
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Riwayat
+                Flexible(
+                  flex: 1,
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _currentPageIndex = 1;
+                      });
+                    },
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _currentPageIndex == 1
+                              ? Icons.history
+                              : Icons.history_outlined,
+                          color: _currentPageIndex == 1
+                              ? const Color(0xFF1E3A8A)
+                              : Colors.grey,
+                          size: 22,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Riwayat',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: _currentPageIndex == 1
+                                ? const Color(0xFF1E3A8A)
+                                : Colors.grey,
+                            fontWeight: _currentPageIndex == 1
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Spacer for FAB
+                const SizedBox(width: 80),
+                // Profil
+                Flexible(
+                  flex: 1,
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _currentPageIndex = 2;
+                      });
+                    },
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _currentPageIndex == 2
+                              ? Icons.person
+                              : Icons.person_outline,
+                          color: _currentPageIndex == 2
+                              ? const Color(0xFF1E3A8A)
+                              : Colors.grey,
+                          size: 22,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Profil',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: _currentPageIndex == 2
+                                ? const Color(0xFF1E3A8A)
+                                : Colors.grey,
+                            fontWeight: _currentPageIndex == 2
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Shortcut Menu
+                Flexible(
+                  flex: 1,
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const UserShortcutMenu(),
+                        ),
+                      );
+                    },
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.apps,
+                          color: Colors.grey,
+                          size: 22,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Menu',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.normal,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -349,21 +547,6 @@ class _UserDashboardState extends State<UserDashboard> {
                     ],
                   ),
                 ),
-                if (!widget.isGuestMode) ...[
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    onPressed: _openQRScanner,
-                    icon: const Icon(Icons.qr_code_scanner,
-                        color: Color(0xFF1E3A8A)),
-                    label: const Text('Scan',
-                        style: TextStyle(
-                            color: Color(0xFF1E3A8A),
-                            fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFD600),
-                    ),
-                  ),
-                ]
               ],
             )
           ],
@@ -393,8 +576,8 @@ class _UserDashboardState extends State<UserDashboard> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem(Icons.calendar_today,
-              widget.isGuestMode ? 0 : _historyRapat.length, 'Total Absen'),
+          _buildStatItem(
+              Icons.calendar_today, _historyRapat.length, 'Total Absen'),
           Container(width: 1, height: 60, color: Colors.white.withOpacity(0.3)),
           _buildStatItem(Icons.history, _historyRapat.length, 'Riwayat'),
           Container(width: 1, height: 60, color: Colors.white.withOpacity(0.3)),
@@ -436,8 +619,7 @@ class _UserDashboardState extends State<UserDashboard> {
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1E293B))),
           const SizedBox(height: 16),
-          if (widget.isGuestMode) _buildGuestEmptyState(),
-          if (_errorMessage != null && !widget.isGuestMode)
+          if (_errorMessage != null)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
               child: Center(
@@ -495,25 +677,26 @@ class _UserDashboardState extends State<UserDashboard> {
           CircleAvatar(
             radius: 50,
             backgroundColor: const Color(0xFF1E3A8A).withOpacity(0.2),
-            child: widget.isGuestMode
-                ? const Icon(Icons.person_pin_circle_outlined,
-                    size: 50, color: Color(0xFF1E3A8A))
-                : _currentUser?.photo != null
-                    ? ClipOval(
-                        child: Image.network(_currentUser!.photo!,
-                            fit: BoxFit.cover, width: 100, height: 100))
-                    : Text(
-                        _currentUser?.name.substring(0, 1).toUpperCase() ?? 'U',
-                        style: const TextStyle(
-                            fontSize: 48, color: Color(0xFF1E3A8A)),
-                      ),
+            child: _currentUser?.photo != null
+                ? ClipOval(
+                    child: Image.network(_currentUser!.photo!,
+                        width: 100, height: 100, fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                      return const Icon(Icons.person,
+                          size: 50, color: Color(0xFF1E3A8A));
+                    }),
+                  )
+                : const Icon(Icons.person, size: 50, color: Color(0xFF1E3A8A)),
           ),
           const SizedBox(height: 16),
-          Text(_currentUser?.name ?? 'Guest User',
-              style:
-                  const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          Text(_currentUser?.email ?? 'Silakan login',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+          Text(
+            _currentUser?.name ?? 'Nama Pengguna',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          Text(
+            _currentUser?.email ?? 'email@example.com',
+            style: TextStyle(color: Colors.grey[600]),
+          ),
           const SizedBox(height: 32),
           const Divider(),
           _buildProfileInfoTile(
@@ -526,23 +709,13 @@ class _UserDashboardState extends State<UserDashboard> {
               Icons.phone_outlined, "Telepon", _currentUser?.phone ?? '-'),
           const Divider(),
           const SizedBox(height: 20),
+          // Tombol Logout
           ElevatedButton.icon(
-            onPressed: () {
-              if (widget.isGuestMode) {
-                Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false);
-              } else {
-                _logout();
-              }
-            },
-            icon: Icon(widget.isGuestMode ? Icons.login : Icons.logout),
-            label: Text(widget.isGuestMode ? 'Login Sekarang' : 'Logout'),
+            onPressed: _logout,
+            icon: const Icon(Icons.logout),
+            label: const Text('Logout'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: widget.isGuestMode
-                  ? const Color(0xFF1E3A8A)
-                  : Colors.red[400],
+              backgroundColor: Colors.red[400],
               foregroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 50),
               shape: RoundedRectangleBorder(
@@ -566,62 +739,12 @@ class _UserDashboardState extends State<UserDashboard> {
 
   void _showMeetingDetails(
       Map<String, dynamic> rapat, Map<String, dynamic> absensi) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Detail Rapat',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDetailItem('Nama Rapat', rapat['judul'] ?? 'N/A'),
-                const SizedBox(height: 12),
-                _buildDetailItem(
-                    'ID Rapat', rapat['id_rapat']?.toString() ?? 'N/A'),
-                const SizedBox(height: 12),
-                _buildDetailItem('Tanggal Rapat', rapat['tanggal'] ?? 'N/A'),
-                const SizedBox(height: 12),
-                _buildDetailItem(
-                    'Waktu Absen', absensi['waktu_absen'] ?? 'N/A'),
-                const SizedBox(height: 12),
-                _buildDetailItem(
-                    'Status Kehadiran',
-                    absensi['id_status_kehadiran'] == 2
-                        ? 'Hadir'
-                        : 'Status Lain'),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Tutup',
-                  style: TextStyle(color: Color(0xFF1E3A8A))),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildDetailItem(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500)),
-        const SizedBox(height: 4),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 16,
-                color: Colors.black87,
-                fontWeight: FontWeight.w500)),
-      ],
+    // Langsung navigasi ke halaman detail
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) =>
+              RapatDetailScreen(rapatId: rapat['id_rapat'].toString())),
     );
   }
 
@@ -702,27 +825,6 @@ class _UserDashboardState extends State<UserDashboard> {
       ),
     );
   }
-
-  Widget _buildGuestEmptyState() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.no_accounts, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            const Text('Anda masuk sebagai tamu',
-                style: TextStyle(fontSize: 16, color: Colors.grey)),
-            const SizedBox(height: 8),
-            const Text('Silakan login untuk melihat riwayat absensi.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.grey)),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ============== SCREEN SCANNER QR ==============
@@ -735,58 +837,135 @@ class QRScannerScreen extends StatefulWidget {
   State<QRScannerScreen> createState() => _QRScannerScreenState();
 }
 
-class _QRScannerScreenState extends State<QRScannerScreen> {
+class _QRScannerScreenState extends State<QRScannerScreen>
+    with SingleTickerProviderStateMixin {
   MobileScannerController cameraController = MobileScannerController();
   final RapatApiService _rapatApiService = RapatApiService();
   bool _isProcessing = false; // Flag untuk menandai proses API sedang berjalan
   Timer? _debounce;
 
+  // Animation state
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+
+    _animation =
+        Tween<double>(begin: 0.0, end: 1.0).animate(_animationController);
+  }
+
   @override
   void dispose() {
+    _animationController.dispose();
     _debounce?.cancel();
     cameraController.dispose();
     super.dispose();
   }
 
   void _onBarcodeScanned(BarcodeCapture barcodes) {
-    // Jika sedang memproses atau debounce aktif, abaikan scan baru
     if (_isProcessing || (_debounce?.isActive ?? false)) return;
 
     final barcode = barcodes.barcodes.first;
-    if (barcode.rawValue == null) {
-      return;
-    }
+    if (barcode.rawValue == null) return;
 
-    setState(() {
-      _isProcessing = true; // Mulai proses
+    setState(() => _isProcessing = true);
+
+    // Stop camera sementara
+    cameraController.stop();
+
+    // Beri feedback visual
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("QR Code berhasil dikenali. Memvalidasi..."),
+        duration: Duration(milliseconds: 1500),
+      ),
+    );
+
+    // Validasi QR token SEGERA
+    _rapatApiService.validateQrToken(barcode.rawValue!).then((result) {
+      if (!mounted) return;
+
+      final sessionToken = result['session_token']?.toString();
+
+      if (sessionToken == null) {
+        throw Exception('Session token tidak diterima dari server');
+      }
+
+      // Navigasi ke FaceScanScreen dengan session token
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FaceScanScreen(
+            qrToken: barcode.rawValue!,
+            onCapture: (token, photo) async {
+              // Callback saat foto diambil - gunakan session token
+              await _processAttendanceWithPhoto(
+                  token, File(photo.path), sessionToken);
+            },
+          ),
+        ),
+      ).then((_) {
+        // Resume scanner setelah kembali
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          cameraController.start();
+        }
+      });
+    }).catchError((error) {
+      if (!mounted) return;
+
+      // Tampilkan error jika validasi QR gagal
+      _showResultDialog(
+        isSuccess: false,
+        title: 'QR Code Tidak Valid',
+        message: error.toString().replaceFirst('Exception: ', ''),
+      );
+
+      // Resume scanner
+      setState(() => _isProcessing = false);
+      cameraController.start();
     });
-
-    // Panggil API untuk absensi
-    _processAttendance(barcode.rawValue!);
   }
 
-  Future<void> _processAttendance(String qrToken) async {
+  Future<void> _processAttendanceWithPhoto(
+      String qrToken, File photo, String sessionToken) async {
     try {
-      final result = await _rapatApiService.attendRapat(qrToken);
+      // Kirim absensi dengan session token
+      final result = await _rapatApiService.attendRapatWithPhoto(
+        qrToken,
+        photo,
+        sessionToken: sessionToken,
+      );
       final message = result['message']?.toString();
 
-      // PERBAIKAN: Cek tipe data dari 'rapat' sebelum parsing
       Rapat? rapat;
       final rapatData = result['rapat'];
+      final idRapat = result['id_rapat'];
 
-      // Hanya coba parsing jika 'rapatData' adalah sebuah Map (JSON object)
       if (rapatData != null && rapatData is Map<String, dynamic>) {
         rapat = Rapat.fromJson(rapatData);
       }
-      ;
+
+      // Tutup FaceScanScreen dulu
+      if (mounted) Navigator.of(context).pop();
 
       _showResultDialog(
         isSuccess: true,
         title: 'Absensi Berhasil',
         message: message ?? 'Anda berhasil melakukan absensi.',
         rapat: rapat,
+        rapatId: idRapat?.toString() ?? rapat?.idRapat.toString(),
       );
     } catch (e) {
+      // Tutup FaceScanScreen dulu jika masih terbuka
+      if (mounted && Navigator.canPop(context)) Navigator.of(context).pop();
+
       _showResultDialog(
         isSuccess: false,
         title: 'Absensi Gagal',
@@ -799,7 +978,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       {required bool isSuccess,
       required String title,
       required String message,
-      Rapat? rapat}) {
+      Rapat? rapat,
+      String? rapatId}) {
     if (!mounted) return;
 
     showDialog(
@@ -828,7 +1008,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                _resetScanner(isSuccess: isSuccess);
+                _resetScanner(isSuccess: isSuccess, rapatId: rapatId);
               },
               child: Text(isSuccess ? 'Tutup' : 'Coba Lagi'),
             ),
@@ -838,10 +1018,18 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     );
   }
 
-  void _resetScanner({bool isSuccess = false}) {
-    // Jika sukses, langsung kembali ke dashboard
+  void _resetScanner({bool isSuccess = false, String? rapatId}) {
+    // Jika sukses, langsung kembali ke dashboard atau ke detail rapat
     if (isSuccess) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(); // Tutup scanner
+
+      if (rapatId != null) {
+        // Redirect ke halaman detail rapat
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => RapatDetailScreen(rapatId: rapatId)));
+      }
       return;
     }
 
@@ -938,10 +1126,50 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: MobileScanner(
-                    controller: cameraController,
-                    onDetect: _onBarcodeScanned,
-                    fit: BoxFit.cover,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      MobileScanner(
+                        controller: cameraController,
+                        onDetect: _onBarcodeScanned,
+                        fit: BoxFit.cover,
+                      ),
+                      // Animation Overlay
+                      AnimatedBuilder(
+                        animation: _animation,
+                        builder: (context, child) {
+                          return Positioned(
+                            top: 300 *
+                                _animation.value, // 300 is container height
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              height: 2,
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                boxShadow: [
+                                  BoxShadow(
+                                      color: Colors.redAccent.withOpacity(0.5),
+                                      blurRadius: 5)
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      // Scanner Frame corners (Optional, simplified here)
+                      Center(
+                        child: Container(
+                          width: 250,
+                          height: 250,
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.5), width: 1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
