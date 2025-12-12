@@ -212,11 +212,13 @@ class RapatApiService {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      if (data is List) {
-        return data.cast<Map<String, dynamic>>();
-      }
+      // Check for 'data' property first (backend wraps response)
       if (data is Map && data['data'] is List) {
         return (data['data'] as List).cast<Map<String, dynamic>>();
+      }
+      // Fallback to direct list
+      if (data is List) {
+        return data.cast<Map<String, dynamic>>();
       }
       throw Exception('Format data rapat tidak dikenali');
     }

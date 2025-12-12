@@ -477,7 +477,7 @@ class _MeetingHistoryPageState extends State<MeetingHistoryPage> {
               tanggal: rapat?['tanggal'] ?? '',
               waktuAbsen: waktuAbsen,
               statusKehadiran: statusKehadiran,
-              ruangan: rapat?['room']?['nama_ruangan'] ?? 'N/A',
+              ruangan: rapat?['room']?['room'] ?? 'N/A',
             ),
           );
         },

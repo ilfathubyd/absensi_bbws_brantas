@@ -182,9 +182,8 @@ class _RapatDetailScreenState extends State<RapatDetailScreen> {
 
     final waktu = (start.isNotEmpty || end.isNotEmpty) ? '$start - $end' : '-';
 
-    final ruangan = _rapatData?['room'] != null
-        ? _rapatData!['room']['nama_ruangan'] ?? _rapatData!['room']['room']
-        : '-';
+    final ruangan =
+        _rapatData?['room'] != null ? _rapatData!['room']['room'] ?? '-' : '-';
     final cabang = _rapatData?['cabang'] != null
         ? _rapatData!['cabang']['nama_cabang'] ??
             _rapatData!['cabang']['cabang']

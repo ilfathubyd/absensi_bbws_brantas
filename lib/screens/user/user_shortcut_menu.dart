@@ -106,7 +106,7 @@ class UserShortcutMenu extends StatelessWidget {
                         _buildMenuButton(
                           context,
                           icon: Icons.home,
-                          label: 'Home Menu',
+                          label: 'Dashboard',
                           color: const Color(0xFF00897B),
                           onTap: () {
                             // Cek apakah ada halaman sebelumnya untuk kembali

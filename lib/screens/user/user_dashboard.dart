@@ -261,8 +261,8 @@ class _UserDashboardState extends State<UserDashboard> {
                       children: [
                         Icon(
                           _currentPageIndex == 0
-                              ? Icons.dashboard
-                              : Icons.dashboard_outlined,
+                              ? Icons.home
+                              : Icons.home_outlined,
                           color: _currentPageIndex == 0
                               ? const Color(0xFF1E3A8A)
                               : Colors.grey,
@@ -1268,7 +1268,7 @@ class _QRScannerScreenState extends State<QRScannerScreen>
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          'ID: ${meeting['id_rapat']} • ${meeting['nama_ruangan'] ?? ''}',
+                                          'ID: ${meeting['id_rapat']} • ${meeting['room']?['room'] ?? ''}',
                                           style: const TextStyle(
                                             fontSize: 12,
                                             color: Colors.grey,

@@ -216,11 +216,11 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 12),
               // Email Support
               GestureDetector(
-                onTap: () => _launchEmail('support@absenapp.com'),
+                onTap: () => _launchEmail('magang@untag-sby2025.com'),
                 child: _buildContactItem(
                   Icons.email,
                   'Email Support',
-                  'support@absenapp.com',
+                  'magang@untag-sby2025.com',
                   Colors.blue,
                 ),
               ),
