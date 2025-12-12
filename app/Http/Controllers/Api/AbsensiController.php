@@ -39,7 +39,7 @@ class AbsensiController extends Controller
             $history = Absensi::where('attendable_id', $user->id_user)
                 ->where('attendable_type', \App\Models\User::class)
                 ->with(['rapat' => function($query) {
-                    $query->with('room:id_room,nama_ruangan');
+                    $query->with('room:id_room,room');
                 }])
                 ->orderBy('waktu_absen', 'desc')
                 ->get();

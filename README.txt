@@ -12,3 +12,10 @@ NOTE:
 # NOTE 21 NOV 2025
     - npm run start
     - pastikan ip benar di .env dan vite.config.js
+
+
+
+# NOTE 9 DEC 2025
+    - HISTORY BUG USER TIDAK MUNCUL
+    - HOME MENU DI SHORTCUT JD DASHBOARD
+    - ICON DIGANTI HOME (DASHBOARD) 
