@@ -22,9 +22,7 @@ class EnsureDeviceIsValid
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        // Bypass check for Admin/PIC if needed (optional, user didn't specify bypass for middleware but usually admins roam)
         // User rule: "Semua request API setelah login harus..." -> Strict for everyone?
-        // Let's stick to strict rules as requested: "Semua request API setelah login harus..."
         
         $token = $user->currentAccessToken();
         
@@ -36,7 +34,6 @@ class EnsureDeviceIsValid
         $tokenNameParts = explode(':', $token->name);
         
         if (count($tokenNameParts) < 2 || $tokenNameParts[0] !== 'device') {
-            // Jika token lama atau format beda -> mungkin force logout atau bypass?
             // Kita assume strict: harus format baru.
             return response()->json(['message' => 'Token invalid format for device validation.'], 401);
         }

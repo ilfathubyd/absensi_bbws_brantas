@@ -233,11 +233,11 @@ class PicController extends Controller
                     ]
                 ];
                 
-                \Log::info('PicController::show response', $response);
+  
                 
                 return response()->json($response);
             } catch (\Exception $e) {
-                \Log::error('Error in PicController::show: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+
                 return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
             }
         }

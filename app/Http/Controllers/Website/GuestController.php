@@ -43,10 +43,7 @@ class GuestController extends Controller
     {
         try {
             $guest = Guest::findOrFail($id);
-            
-            // PERMINTAAN USER: "Reset" berarti menghapus device_id/token di absensi
-            // agar data tamu tetap tercatat tapi device bisa dipakai lagi atau tamu bisa login ulang (tergantung logika)
-            // Kita set device_token menjadi NULL pada semua record absensi terkait tamu ini.
+
             foreach ($guest->absensi as $absen) {
                 $absen->device_token = null;
                 $absen->save();

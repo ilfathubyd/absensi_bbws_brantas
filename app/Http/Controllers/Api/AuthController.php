@@ -47,11 +47,7 @@ class AuthController extends Controller
         // Pengguna baru berhasil dibuat oleh admin
         $user = User::create($data);
 
-        // Anda mungkin tidak perlu membuat token untuk user yang baru dibuat
-        // karena user ini tidak langsung login. Sesuaikan sesuai kebutuhan.
-        // $token = $user->createToken('api_token')->plainTextToken;
-
-        // Cukup kembalikan data user yang baru dibuat
+        // kembalikan data user yang baru dibuat
         return response()->json([
             'message' => 'User created successfully by admin.',
             'user' => $user,
@@ -156,16 +152,6 @@ class AuthController extends Controller
         // PERBAIKAN: Muat relasi dengan eager loading
         $user->load(['role', 'division', 'activeDevice']);
 
-        // Create Token with Ability or Metadata to store app_instance_id if needed
-        // Since Sanctum uses database, we can just use normal token. 
-        // Validation middleware will check DB UserDevice vs User vs Current Request header if we enforce valid requests.
-        // But user said "Middleware membaca token -> ambil app_instance_id".
-        // We will add a claim 'app_instance_id' to the token abilities or similar.
-        // Sanctum: $user->createToken('name', ['ability']);
-        // But better: Just rely on DB check in middleware using user->id.
-        // HOWEVER, user requirement #5: "Middleware... membaca token -> ambil app_instance_id di token"
-        // I will add it to the token NAME itself (hacky but works) OR just standard check.
-        // Let's use the token name to store metadata safely: "android_app:<uuid>"
         $tokenName = 'device:' . $request->app_instance_id;
         $token = $user->createToken($tokenName)->plainTextToken;
 
@@ -222,9 +208,7 @@ class AuthController extends Controller
 
     public function getUsersWithRole(Request $request)
     {
-        // 🔒 LANGKAH KEAMANAN: Pastikan hanya user yang berwenang (misal: admin)
-        // yang bisa mengakses daftar pengguna ini. Anda perlu membuat Gate/Policy
-        // bernama 'view-users' terlebih dahulu.
+
         $this->authorize('pic-auth');  // Hanya Admin yang bisa menyetujui
 
         // Mengambil semua user dengan id_role = 2
@@ -249,8 +233,6 @@ class AuthController extends Controller
 
     // public function getUsersByDivision(Request $request)
     // {
-    //     // 🔒 LANGKAH KEAMANAN: Pastikan hanya user yang berwenang yang bisa mengakses.
-    //     // Menggunakan policy yang sama dengan endpoint user lainnya untuk konsistensi.
     //     $this->authorize('pic-auth');
     //     // Hanya Admin yang bisa menyetujui
 

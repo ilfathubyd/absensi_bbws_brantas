@@ -30,11 +30,8 @@ class AbsensiController extends Controller
             $user = Auth::user();
             
             if (!$user) {
-                \Log::warning('History API: User not authenticated');
                 return response()->json(['error' => 'User not authenticated'], 401);
             }
-
-            \Log::info('History API: Fetching history for user', ['user_id' => $user->id_user]);
 
             $history = Absensi::where('attendable_id', $user->id_user)
                 ->where('attendable_type', \App\Models\User::class)
@@ -44,13 +41,9 @@ class AbsensiController extends Controller
                 ->orderBy('waktu_absen', 'desc')
                 ->get();
 
-            \Log::info('History API: Success', ['count' => $history->count()]);
 
             return response()->json(['data' => $history], 200);
         } catch (\Exception $e) {
-            \Log::error('History API Error: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
             return response()->json([
                 'error' => 'Failed to fetch history',
                 'message' => $e->getMessage()
